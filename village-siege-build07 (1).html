@@ -59,6 +59,14 @@
     background:rgba(8,7,6,.82);border:1px solid rgba(242,234,215,.4);
     font-size:11px;letter-spacing:.26em;color:var(--bone);white-space:nowrap}
 
+  /* --- cash, sits directly on top of the health plate --- */
+  #cash{left:24px;bottom:180px;display:flex;align-items:center;gap:11px;
+    padding:8px 15px}
+  #cash .coin{flex:none;display:block}
+  #cashnum{font-family:var(--display);font-size:31px;font-weight:700;line-height:1;
+    letter-spacing:.03em;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+  #cash .lbl{font-size:10px;letter-spacing:.3em;color:var(--dust)}
+
   /* --- health, bottom left --- */
   #vitals{left:24px;bottom:24px;width:312px}
   #vitals .lbl{font-size:10px;letter-spacing:.34em;color:var(--dust);margin-bottom:8px}
@@ -110,12 +118,19 @@
     white-space:nowrap;text-shadow:0 2px 8px rgba(0,0,0,.9)}
   #breather.on{opacity:1}
 
+  #padhint{position:absolute;left:50%;bottom:24%;transform:translateX(-50%);
+    font-size:11px;letter-spacing:.34em;color:var(--amber);opacity:0;
+    transition:opacity .25s;white-space:nowrap;text-shadow:0 2px 8px rgba(0,0,0,.9)}
+  #padhint.on{opacity:1}
+
   /* small windows: scale the HUD down instead of letting it run off screen */
   @media (max-height:660px),(max-width:820px){
     #wavering{width:124px;height:124px}
     #vitals{width:240px;left:16px;bottom:16px;padding:9px 12px}
     #hpnum{font-size:36px}
     #hpbar{height:22px}
+    #cash{left:16px;bottom:150px;padding:6px 11px;gap:9px}
+    #cashnum{font-size:24px}
     #ammo{right:16px;bottom:16px;padding:9px 12px 11px}
     #bullet{width:60px;height:124px}
     #reloadbar{width:60px}
@@ -162,6 +177,35 @@
   .sens{display:flex;align-items:center;gap:12px;font-size:10px;letter-spacing:.24em;
     color:var(--dust);margin-top:24px;pointer-events:auto}
   .sens input{width:150px;accent-color:var(--amber)}
+  /* ---------- shop (same plate language as the HUD) ---------- */
+  #s-shop{justify-content:flex-start;padding:5vh 24px 24px;overflow-y:auto}
+  #shopcash{font-family:var(--display);font-size:36px;font-weight:700;line-height:1;
+    letter-spacing:.04em}
+  #shopcash small{font-family:var(--mono);font-size:11px;letter-spacing:.24em;
+    color:var(--dust);margin-left:8px;font-weight:400}
+  #shopgrid{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));
+    gap:13px;width:min(900px,94vw);margin-bottom:22px}
+  .item{position:relative;background:rgba(14,12,10,.78);
+    border:1px solid rgba(242,234,215,.4);padding:13px 15px 14px;text-align:left;
+    color:var(--bone);font-family:var(--mono);cursor:pointer;pointer-events:auto;
+    transition:.15s}
+  .item:before{content:"";position:absolute;inset:3px;
+    border:1px solid rgba(242,234,215,.12);pointer-events:none}
+  .item:hover:not(.off),.item:focus-visible:not(.off){background:rgba(48,38,24,.9);
+    border-color:var(--amber);outline:none}
+  .item.off{opacity:.38;cursor:not-allowed}
+  .item .nm{font-family:var(--display);font-size:21px;font-weight:700;
+    letter-spacing:.07em;margin-bottom:6px}
+  .item .ds{font-size:10px;line-height:1.6;color:var(--dust);letter-spacing:.05em;
+    min-height:48px}
+  .item .pr{font-family:var(--display);font-size:23px;font-weight:700;
+    color:var(--amber);margin-top:9px;letter-spacing:.04em}
+  .item .own{font-size:9px;letter-spacing:.24em;color:var(--olive);margin-top:5px}
+  @media (max-width:700px){
+    #shopgrid{grid-template-columns:repeat(2,minmax(150px,1fr))}
+    .item .ds{min-height:0}
+  }
+
   #buildtag{position:fixed;right:10px;top:8px;font-size:9px;letter-spacing:.22em;
     color:rgba(242,234,215,.5);z-index:30;pointer-events:none}
   #loadmsg{font-size:12px;color:var(--dust);letter-spacing:.16em}
@@ -170,7 +214,7 @@
 </head>
 <body>
 
-<div id="buildtag">BUILD 07 &middot; HUD LAYER FIX</div>
+<div id="buildtag">BUILD 08 &middot; CASH + WATCHTOWER BASE</div>
 
 <div id="floaters"></div>
 
@@ -198,6 +242,17 @@
       <text class="wr-sub" x="80" y="128">OF 25</text>
     </svg>
     <div id="t-left">0 ENEMIES LEFT</div>
+  </div>
+
+  <div class="plate" id="cash">
+    <svg class="coin" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" fill="#ffb23f" stroke="#f2ead7" stroke-width="1.6"/>
+      <circle cx="12" cy="12" r="6.6" fill="none" stroke="rgba(20,18,16,.42)" stroke-width="1.1"/>
+      <text x="12" y="16.3" text-anchor="middle" font-size="12" font-weight="700"
+            font-family="Arial Narrow,Impact,sans-serif" fill="#141210">$</text>
+    </svg>
+    <div id="cashnum">0</div>
+    <div class="lbl">CASH</div>
   </div>
 
   <div class="plate" id="vitals">
@@ -231,6 +286,7 @@
 
   <div id="banner"><div class="b1"></div><div class="b2"></div></div>
   <div id="breather"></div>
+  <div id="padhint">SUPPLY PAD &middot; STEP ON THE RING TO TRADE</div>
 </div>
 
 <div id="dmg"></div>
@@ -249,6 +305,7 @@
     <b>SPACE</b><span>jump</span>
     <b>M</b><span>mute sound</span>
     <b>ESC</b><span>pause</span>
+    <b>PAD</b><span>step on the ring by the tower to trade</span>
   </div>
   <button class="btn" id="btn-start">DEPLOY</button>
   <div class="sens"><span>SENSITIVITY</span>
@@ -292,6 +349,17 @@
   </div>
   <div class="rule"></div>
   <button class="btn" id="btn-replay">RUN IT BACK</button>
+</div>
+
+<div class="screen hidden" id="s-shop">
+  <div class="eyebrow">WATCHTOWER &middot; SUPPLY PAD</div>
+  <h1 style="font-size:clamp(30px,6vw,62px)">THE ARMOURY</h1>
+  <div class="rule" style="margin:18px 0 14px"></div>
+  <div id="shopcash">0<small>CASH</small></div>
+  <div class="rule" style="margin:14px 0 18px"></div>
+  <div id="shopgrid"></div>
+  <button class="btn" id="btn-shopclose">BACK TO THE LINE</button>
+  <div class="hint">Waves hold while you trade &middot; step off the ring to trade again</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -410,6 +478,28 @@ function sfxPickup(){
   if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
   tone("triangle",520,t,.22,.01,.14);
   tone("triangle",780,t+.09,.22,.01,.18);
+}
+function sfxCoin(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  tone("square",1040,t,.15,.006,.08);
+  tone("square",1560,t+.055,.13,.006,.14);
+}
+function sfxBuy(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  tone("triangle",330,t,.26,.01,.16);
+  tone("triangle",494,t+.11,.24,.01,.22);
+  sfxClick(.02,1200);
+}
+/* turret + ally fire: one shared, rate limited blip so a full base is not a wall of noise */
+let autoSfxAt=0;
+function sfxAuto(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  if(t-autoSfxAt<.07) return; autoSfxAt=t;
+  tone("square",680,t,.11,.003,.07,AUD.sfx,190);
+  const n=noiseSrc(),f=AUD.ctx.createBiquadFilter(),g=AUD.ctx.createGain();
+  f.type="bandpass"; f.frequency.value=2600; f.Q.value=1.2;
+  env(g,t,.09,.002,.06); n.connect(f); f.connect(g); g.connect(AUD.sfx);
+  n.start(t); n.stop(t+.12);
 }
 function sfxWave(){
   if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
@@ -700,6 +790,35 @@ function well(x,z){
   rf.position.set(x,3.8,z); rf.rotation.y=Math.PI/4; rf.castShadow=true; worldRoot.add(rf);
   addCollider(x,z,1.6,1.6,0,1.1,true);
 }
+/* the watchtower: the player's base, the one thing at dead centre of the village */
+let towerBeacon=null;
+function watchtower(x,z){
+  const bh=3.4, sh=5.6, sy=bh+.5;
+  box(4.4,bh,4.4,matStone,x,bh/2,z);                       // stone plinth
+  box(5,.5,5,matStone,x,bh+.25,z);                         // capstone lip
+  box(2.4,sh,2.4,matWood,x,sy+sh/2,z);                     // timber shaft
+  for(let i=0;i<4;i++){                                    // corner posts
+    const a=i*Math.PI/2+Math.PI/4;
+    box(.3,sh,.3,matDark,x+Math.cos(a)*1.6,sy+sh/2,z+Math.sin(a)*1.6);
+  }
+  const py=sy+sh;
+  box(5.4,.45,5.4,matWood,x,py+.22,z);                     // lookout deck
+  for(let i=0;i<4;i++){                                    // deck railing
+    const a=i*Math.PI/2;
+    box(5.4,.9,.22,matWood,x+Math.sin(a)*2.6,py+.9,z+Math.cos(a)*2.6,a);
+  }
+  const rf=new THREE.Mesh(new THREE.ConeGeometry(4.1,2.3,4),matRoof);
+  rf.position.set(x,py+2.6,z); rf.rotation.y=Math.PI/4;
+  rf.castShadow=true; worldRoot.add(rf); solids.push(rf);
+  const bulb=new THREE.Mesh(new THREE.SphereGeometry(.42,10,8),
+    new THREE.MeshBasicMaterial({color:0xffc46a}));
+  bulb.position.set(x,py+4.1,z); worldRoot.add(bulb);      // beacon on the spire
+  const light=new THREE.PointLight(0xffb35c,0,30); light.position.set(x,py+3.9,z);
+  worldRoot.add(light);
+  towerBeacon={bulb:bulb,light:light};
+  lampBulbs.push(towerBeacon);
+  addCollider(x,z,2.5,2.5,0,bh+.5,false);
+}
 function lamp(x,z){
   box(.16,3.2,.16,matWood,x,1.6,z);
   const bulb=new THREE.Mesh(new THREE.SphereGeometry(.22,10,8),
@@ -750,12 +869,13 @@ const HOUSES=[
 ];
 HOUSES.forEach(h=>house(h[0],h[1],h[2],h[3],h[4],h[5],h[6]));
 
-well(0,0);
+watchtower(0,0);
+well(7,7);                       /* the well moved off centre to make room for the tower */
 lamp(-6,6); lamp(7,-7); lamp(-3,-14); lamp(15,8); lamp(-17,11);
 crate(3,4); crate(4.1,4.2,1.1,.4); crate(3.6,3.2,1.1,.9); crate(3.4,5.4);
 crate(-8,-8); crate(-8.9,-8.6,1.1,.6); crate(16,-9); crate(15,-9.6,1.1,.3);
 crate(-20,14); crate(9,17); crate(9.9,17.4,1.1,.7); crate(-25,-6);
-barrel(-4,3); barrel(-4.9,3.6); barrel(8,10); barrel(8.8,10.6); barrel(-15,-5);
+barrel(-8,4); barrel(-8.9,4.6); barrel(8,10); barrel(8.8,10.6); barrel(-15,-5);
 barrel(20,-14); barrel(-9,20);
 haystack(-16,3); haystack(13,-3); haystack(-2,13); haystack(21,20);
 cart(-11,9,.5); cart(7,-13,-.8);
@@ -763,6 +883,28 @@ lowWall(-6,-6,9,0); lowWall(10,9,8,Math.PI/2); lowWall(-19,-3,7,Math.PI/2);
 lowWall(0,16,10,0); lowWall(17,-12,7,0.3); lowWall(-24,17,8,0.2);
 for(let i=0;i<16;i++){ const a=rand(0,TAU),d=rand(10,32); rock(Math.cos(a)*d,Math.sin(a)*d); }
 for(let i=0;i<34;i++){ const a=rand(0,TAU),d=rand(8,34); bush(Math.cos(a)*d,Math.sin(a)*d); }
+
+/* supply pad: step inside the ring to open the shop */
+const PAD={x:-4,z:4,r:1.9};
+const padMat=new THREE.MeshBasicMaterial({color:0xffb23f,transparent:true,
+  opacity:.3,depthWrite:false,side:THREE.DoubleSide});
+const padDisc=new THREE.Mesh(new THREE.CircleGeometry(PAD.r,26),padMat);
+padDisc.rotation.x=-Math.PI/2; padDisc.position.set(PAD.x,.05,PAD.z);
+worldRoot.add(padDisc);
+const padRingMat=new THREE.MeshBasicMaterial({color:0xffe4ab,transparent:true,
+  opacity:.85,depthWrite:false,side:THREE.DoubleSide});
+const padRing=new THREE.Mesh(new THREE.RingGeometry(PAD.r*.84,PAD.r,26),padRingMat);
+padRing.rotation.x=-Math.PI/2; padRing.position.set(PAD.x,.07,PAD.z);
+worldRoot.add(padRing);
+for(let i=0;i<4;i++){                                  // little marker stubs on the rim
+  const a=i*Math.PI/2+Math.PI/4;
+  box(.24,.62,.24,matDark,PAD.x+Math.cos(a)*PAD.r,.31,PAD.z+Math.sin(a)*PAD.r);
+}
+
+/* turret footings around the tower - the shop bolts guns onto these */
+const SLOTS=[{x:6,z:0,used:false},{x:0,z:6,used:false},
+             {x:-6,z:0,used:false},{x:0,z:-6,used:false}];
+SLOTS.forEach(s=>box(1.5,.26,1.5,matStone,s.x,.13,s.z));
 
 /* perimeter fence with gaps for the enemy paths */
 for(let i=0;i<4;i++){
@@ -1003,6 +1145,7 @@ function killEnemy(e){
   game.kills++; game.score+=e.cfg.score;
   sfxDeath();
   if(Math.random()<.19) dropHealth(pos);
+  dropCash(pos,e.type);
   updateHUD();
 }
 const healthMat=new THREE.MeshBasicMaterial({color:0x8ff08a});
@@ -1011,7 +1154,24 @@ function dropHealth(pos){
   g.add(new THREE.Mesh(bgeo(.55,.18,.18),healthMat));
   g.add(new THREE.Mesh(bgeo(.18,.55,.18),healthMat));
   g.position.set(pos.x,.8,pos.z);
-  pickRoot.add(g); pickups.push({g:g,life:22});
+  pickRoot.add(g); pickups.push({g:g,life:22,kind:"hp"});
+}
+/* cash drops: chance and payout both scale with what you put down */
+const CASH_DROP={grunt :{chance:.7,a:4 ,b:8 },
+                 runner:{chance:.7,a:6 ,b:10},
+                 heavy :{chance:1 ,a:18,b:28}};
+const coinMat=new THREE.MeshLambertMaterial({color:0xffc23c,emissive:0x4d3106});
+const coinGeo=new THREE.CylinderGeometry(.3,.3,.09,12);
+function dropCash(pos,type){
+  const d=CASH_DROP[type];
+  if(Math.random()>=d.chance) return;
+  const amt=Math.round(randi(d.a,d.b)*(1+(game.wave-1)*.05));   // keeps pace with hpMul
+  const g=new THREE.Group();
+  const c=new THREE.Mesh(coinGeo,coinMat);
+  c.rotation.x=Math.PI/2;                                       // stand it up like a token
+  g.add(c);
+  g.position.set(pos.x+rand(-.35,.35),.8,pos.z+rand(-.35,.35));
+  pickRoot.add(g); pickups.push({g:g,life:26,kind:"cash",amt:amt});
 }
 
 /* enemy plasma bolt */
@@ -1029,11 +1189,12 @@ function fireBolt(e){
 /* =====================================================================
    8. PLAYER + GAME STATE
    ===================================================================== */
-const player={pos:new THREE.Vector3(0,0,10),vy:0,onGround:true,hp:100,
-  yaw:Math.PI,pitch:0,bob:0,recoil:0,recoilV:0,kick:0,
+const player={pos:new THREE.Vector3(0,0,10),vy:0,onGround:true,hp:100,maxhp:100,
+  yaw:Math.PI,pitch:0,bob:0,recoil:0,recoilV:0,kick:0,cash:0,dmgMul:1,
   ammo:30,mag:30,reloading:0,fireCool:0,spread:0,noHitTime:0,shake:0};
 const game={state:"menu",wave:0,alive:0,kills:0,score:0,shots:0,hits:0,
-  best:0,between:0,pending:0,queue:[],spawnCool:0,time:0,sunT:1};
+  best:0,between:0,pending:0,queue:[],spawnCool:0,time:0,sunT:1,
+  turretTier:0,padLock:true,up:{hp:0,dmg:0,aura:0}};
 let sensitivity=1.0;
 
 const keys={};
@@ -1044,9 +1205,10 @@ addEventListener("keydown",e=>{
   if(e.code==="Space") e.preventDefault();
 });
 addEventListener("keyup",e=>{keys[e.code]=false;});
-let mouseDown=false, dragLook=false, dragX=0, dragY=0, pointerLockFailed=false;
+let mouseDown=false, dragLook=false, dragX=0, dragY=0,
+    pointerLockFailed=false, pointerLockWorked=false;
 addEventListener("mousedown",e=>{
-  if(e.button!==0) return;
+  if(e.button!==0||game.state==="shop") return;
   mouseDown=true;
   if(document.pointerLockElement!==document.body){
     dragLook=true; dragX=e.clientX; dragY=e.clientY;
@@ -1068,9 +1230,17 @@ addEventListener("mousemove",e=>{
   }
 });
 addEventListener("pointerlockerror",()=>{
+  if(pointerLockWorked) return;   // browsers throttle re-locking; that is not a policy block
   pointerLockFailed=true;
   $("#loadmsg").textContent="Mouse lock is blocked here — click and drag to look around instead.";
 });
+/* requestPointerLock rejects if we are already locked or the browser is throttling
+   a re-lock; neither is worth an unhandled rejection in the console */
+function lockPointer(){
+  if(pointerLockFailed||document.pointerLockElement===document.body) return;
+  const r=document.body.requestPointerLock();
+  if(r&&r.catch) r.catch(()=>{});
+}
 function toggleMute(){
   AUD.muted=!AUD.muted;
   if(AUD.ctx) AUD.master.gain.setTargetAtTime(AUD.muted?0:.9,AUD.ctx.currentTime,.05);
@@ -1119,7 +1289,7 @@ function shoot(){
     end=hit.point.clone();
     if(ref&&!ref.dead){
       game.hits++;
-      const dmg=head?66:27;
+      const dmg=(head?66:27)*player.dmgMul;
       const killed=damageEnemy(ref,dmg,head,hit.point);
       sfxHit(head);
       hitMarker(killed);
@@ -1171,6 +1341,7 @@ const el={
   wave:$("#t-wave"),left:$("#t-left"),kills:$("#t-kills"),ring:$("#waveprog"),
   banner:$("#banner"),b1:$("#banner .b1"),b2:$("#banner .b2"),
   breather:$("#breather"),dmg:$("#dmg"),lowhp:$("#lowhp"),
+  cash:$("#cashnum"),padhint:$("#padhint"),shopCash:$("#shopcash"),
   hm:$("#hitmark"),floaters:$("#floaters"),
   chU:$("#ch-up"),chD:$("#ch-dn"),chL:$("#ch-lf"),chR:$("#ch-rt")
 };
@@ -1182,10 +1353,11 @@ const el={
 })();
 function updateHUD(){
   const hp=Math.max(0,Math.round(player.hp));
-  el.hp.style.transform="scaleX("+clamp(player.hp/100,0,1)+")";
+  el.hp.style.transform="scaleX("+clamp(player.hp/player.maxhp,0,1)+")";
   el.hpnum.innerHTML=hp+"<small>HP</small>";
-  el.hpbar.classList.toggle("low",player.hp<=35);
-  el.lowhp.classList.toggle("on",player.hp<=30&&game.state==="playing");
+  el.hpbar.classList.toggle("low",player.hp<=player.maxhp*.35);
+  el.lowhp.classList.toggle("on",player.hp<=player.maxhp*.3&&game.state==="playing");
+  el.cash.textContent=player.cash;
 
   const frac=clamp(player.ammo/player.mag,0,1);
   el.ammoNum.textContent=player.ammo;
@@ -1217,6 +1389,277 @@ function banner(a,b){
   el.b1.textContent=a; el.b2.textContent=b;
   el.banner.classList.remove("show"); void el.banner.offsetWidth;
   el.banner.classList.add("show");
+}
+
+/* =====================================================================
+   10B. THE BASE - TURRETS, HIRED ALLIES, SHOP
+   ===================================================================== */
+const turretRoot=new THREE.Group(); scene.add(turretRoot);
+const allyRoot=new THREE.Group();   scene.add(allyRoot);
+const turrets=[], turretPool=[], allies=[], allyPool=[];
+const TURRET={dmg:14,rate:.75,range:26,tierDmg:8};
+const ALLY  ={dmg:11,rate:.9 ,range:22,speed:4.5,follow:3.6,leash:11,
+              /* they walk slower than you, so let them jog to close a gap or you
+                 would simply sprint away from anything you hired */
+              catchUp:9,catchUpMul:1.9};
+const MAX_ALLIES=3;
+/* scratch vectors: turret and ally fire happens every frame, nothing allocates here */
+const aimA=new THREE.Vector3(), aimB=new THREE.Vector3();
+
+function nearestEnemy(x,z,range){
+  let best=null, bd=range*range;
+  for(let i=0;i<enemies.length;i++){
+    const e=enemies[i]; if(e.dead) continue;
+    const dx=e.g.position.x-x, dz=e.g.position.z-z;
+    const d=dx*dx+dz*dz;
+    if(d<bd){ bd=d; best=e; }
+  }
+  return best;
+}
+/* one shot from a turret or an ally - same damage path as the player's rifle */
+function autoShot(fx0,fy0,fz0,e,dmg,color){
+  aimA.set(fx0,fy0,fz0);
+  aimB.set(e.g.position.x,e.g.position.y+1.2*e.cfg.scale,e.g.position.z);
+  tracer(aimA,aimB);
+  sparks(aimB,color);
+  sfxAuto();
+  damageEnemy(e,dmg,false,aimB);
+}
+
+/* --- turrets --- */
+const matTurret=new THREE.MeshLambertMaterial({color:0x707c55});
+const matTurretTrim=new THREE.MeshLambertMaterial({color:0x3d4432});
+const matTurretEye=new THREE.MeshBasicMaterial({color:0xa8f06a});
+function buildTurret(){
+  const g=new THREE.Group();
+  const add=(w,h,d,mat,x,y,z,par)=>{
+    const m=new THREE.Mesh(bgeo(w,h,d),mat);
+    m.position.set(x,y,z); (par||g).add(m); return m;
+  };
+  add(1.1,.34,1.1,matTurretTrim,0,.17,0);              // footing
+  add(.5,.72,.5,matTurret,0,.7,0);                     // column
+  const head=new THREE.Group(); head.position.y=1.2; g.add(head);
+  add(.72,.46,.6,matTurret,0,0,0,head);
+  add(.13,.13,.9,matTurretTrim,-.16,0,-.6,head);       // barrels
+  add(.13,.13,.9,matTurretTrim, .16,0,-.6,head);
+  add(.34,.1,.06,matTurretEye,0,.14,-.32,head);        // eye slit
+  const blob=new THREE.Mesh(blobGeo,blobMat);          // same cheap fake shadow
+  blob.rotation.x=-Math.PI/2; blob.position.y=.03; blob.scale.setScalar(.85);
+  g.add(blob);
+  return {group:g,head:head};
+}
+function placeTurret(slot){
+  const t=turretPool.pop()||buildTurret();
+  t.head.rotation.y=0;
+  t.group.position.set(slot.x,groundAt(slot.x,slot.z),slot.z);
+  turretRoot.add(t.group);
+  turrets.push({parts:t,slot:slot,cool:rand(0,.5),target:null,retarget:0});
+  slot.used=true;
+}
+function updateTurrets(dt){
+  const dmg=TURRET.dmg+game.turretTier*TURRET.tierDmg;
+  for(let i=0;i<turrets.length;i++){
+    const t=turrets[i], p=t.parts.group.position;
+    t.retarget-=dt;
+    if(t.retarget<=0||!t.target||t.target.dead){
+      t.retarget=.22; t.target=nearestEnemy(p.x,p.z,TURRET.range);
+    }
+    if(t.cool>0) t.cool-=dt;
+    const e=t.target;
+    if(!e||e.dead) continue;
+    const dx=e.g.position.x-p.x, dz=e.g.position.z-p.z;
+    t.parts.head.rotation.y=Math.atan2(dx,dz);
+    if(t.cool<=0){
+      t.cool=TURRET.rate;
+      autoShot(p.x,p.y+1.2,p.z,e,dmg,0xbaf06a);
+      if(e.dead) t.target=null;
+    }
+  }
+}
+
+/* --- hired allies: same build approach as the robots, friendly palette --- */
+const allyMat={body:new THREE.MeshLambertMaterial({color:0xe4d9bb}),
+               trim:new THREE.MeshLambertMaterial({color:0x7d8a4f}),
+               vis :new THREE.MeshBasicMaterial({color:0x63d4ff})};
+function buildAlly(){
+  const g=new THREE.Group();
+  const add=(w,h,d,mat,x,y,z)=>{
+    const m=new THREE.Mesh(bgeo(w,h,d),mat); m.position.set(x,y,z); g.add(m); return m;
+  };
+  const legL=add(.18,.76,.18,allyMat.trim,-.16,.38,0);
+  const legR=add(.18,.76,.18,allyMat.trim, .16,.38,0);
+  add(.6,.7,.4,allyMat.body,0,1.13,0);
+  add(.7,.14,.44,allyMat.trim,0,1.46,0);
+  add(.34,.1,.28,allyMat.vis,0,1.12,-.2);                 // chest core
+  const armL=add(.15,.6,.15,allyMat.trim,-.4,1.13,0);
+  const armR=add(.15,.6,.15,allyMat.trim, .4,1.13,0);
+  add(.34,.32,.32,allyMat.body,0,1.74,0);
+  add(.28,.1,.06,allyMat.vis,0,1.76,-.17);                // eye slit
+  add(.05,.46,.05,allyMat.trim,0,2.13,.09);               // antenna reads friendly
+  add(.12,.12,.12,allyMat.vis,0,2.4,.09);
+  const blob=new THREE.Mesh(blobGeo,blobMat);
+  blob.rotation.x=-Math.PI/2; blob.position.y=.04; blob.scale.setScalar(.9);
+  g.add(blob);
+  g.scale.setScalar(.95);
+  return {group:g,legL:legL,legR:legR,armL:armL,armR:armR};
+}
+function spawnAlly(){
+  const a=allyPool.pop()||buildAlly();
+  a.legL.rotation.x=a.legR.rotation.x=0; a.armL.rotation.x=a.armR.rotation.x=0;
+  const ang=rand(0,TAU);
+  a.group.position.set(Math.cos(ang)*5.2,0,Math.sin(ang)*5.2);
+  resolve(a.group.position,.45,0);
+  a.group.position.y=groundAt(a.group.position.x,a.group.position.z);
+  allyRoot.add(a.group);
+  allies.push({parts:a,cool:rand(0,.6),target:null,retarget:0,walk:rand(0,6),
+    avoid:0,avoidDir:1,lastX:a.group.position.x,lastZ:a.group.position.z});
+}
+function updateAllies(dt){
+  for(let i=0;i<allies.length;i++){
+    const a=allies[i], p=a.parts.group.position;
+    a.retarget-=dt;
+    if(a.retarget<=0||!a.target||a.target.dead){
+      a.retarget=.25; a.target=nearestEnemy(p.x,p.z,ALLY.range);
+    }
+    const pdx=player.pos.x-p.x, pdz=player.pos.z-p.z;
+    const pd=Math.hypot(pdx,pdz)||1e-4;
+    const e=(a.target&&!a.target.dead)?a.target:null;
+    /* hold position and shoot; only close up when the player gets too far ahead */
+    const walking=e?pd>ALLY.leash:pd>ALLY.follow;
+    if(walking){
+      const sp=ALLY.speed*(pd>ALLY.catchUp?ALLY.catchUpMul:1);
+      const step=sp*dt;
+      let mx=pdx/pd, mz=pdz/pd;
+      if(a.avoid>0){                            // same sidestep the robots use
+        a.avoid-=dt;
+        mx=pdx/pd*.5-(pdz/pd)*a.avoidDir; mz=pdz/pd*.5+(pdx/pd)*a.avoidDir;
+        const l=Math.hypot(mx,mz); mx/=l; mz/=l;
+      }
+      p.x+=mx*step; p.z+=mz*step;
+      resolve(p,.45,0);
+      const movedSq=(p.x-a.lastX)*(p.x-a.lastX)+(p.z-a.lastZ)*(p.z-a.lastZ);
+      if(movedSq<step*step*.2&&a.avoid<=0){ a.avoid=1.1; a.avoidDir=Math.random()<.5?-1:1; }
+      a.walk+=dt*sp*2.4;
+      const sw=Math.sin(a.walk)*.5;
+      a.parts.legL.rotation.x=sw; a.parts.legR.rotation.x=-sw;
+    }else{
+      resolve(p,.45,0);
+      a.avoid=0;
+      a.parts.legL.rotation.x=lerp(a.parts.legL.rotation.x,0,dt*8);
+      a.parts.legR.rotation.x=lerp(a.parts.legR.rotation.x,0,dt*8);
+    }
+    a.lastX=p.x; a.lastZ=p.z;
+    p.y=groundAt(p.x,p.z);
+    p.x=clamp(p.x,-35,35); p.z=clamp(p.z,-35,35);
+
+    if(e){
+      const dx=e.g.position.x-p.x, dz=e.g.position.z-p.z;
+      a.parts.group.rotation.y=Math.atan2(dx,dz);
+      if(a.cool>0) a.cool-=dt;
+      if(a.cool<=0&&dx*dx+dz*dz<ALLY.range*ALLY.range){
+        a.cool=ALLY.rate;
+        autoShot(p.x,p.y+1.15,p.z,e,ALLY.dmg,0x8fe0ff);
+        a.parts.armR.rotation.x=-1.3;
+        if(e.dead) a.target=null;
+      }
+    }else a.parts.group.rotation.y=Math.atan2(pdx,pdz);
+    a.parts.armR.rotation.x=lerp(a.parts.armR.rotation.x,0,dt*7);
+  }
+}
+
+/* --- the shop: one table drives the buttons, the prices and the owned state --- */
+const SHOP=[
+  {id:"turret",nm:"AUTO TURRET",
+   ds:"Bolts a gun onto one of the four tower footings. Finds its own targets.",
+   cost:()=>110+60*turrets.length,
+   own:()=>turrets.length+" / "+SLOTS.length+" PLACED",
+   can:()=>turrets.length<SLOTS.length,
+   buy:()=>{ placeTurret(SLOTS.find(s=>!s.used)); }},
+  {id:"slug",nm:"HEAVY SLUGS",
+   ds:"Every turret you own hits harder. Three tiers of ammunition.",
+   cost:()=>[140,220,320][game.turretTier],
+   own:()=>"TIER "+game.turretTier+" / 3 · "+
+           (TURRET.dmg+game.turretTier*TURRET.tierDmg)+" DMG",
+   can:()=>game.turretTier<3,
+   buy:()=>{ game.turretTier++; }},
+  {id:"ally",nm:"HIRED GUN",
+   ds:"A friendly machine that trails you and opens up on anything that gets close.",
+   cost:()=>150+90*allies.length,
+   own:()=>allies.length+" / "+MAX_ALLIES+" HIRED",
+   can:()=>allies.length<MAX_ALLIES,
+   buy:()=>{ spawnAlly(); }},
+  {id:"hp",nm:"PLATE ARMOUR",
+   ds:"Raises your condition ceiling from 100 to 150, and patches you up on the spot.",
+   cost:()=>180,
+   own:()=>game.up.hp?"FITTED":"CEILING "+player.maxhp,
+   can:()=>!game.up.hp,
+   buy:()=>{ game.up.hp=1; player.maxhp=150; player.hp=150; }},
+  {id:"rounds",nm:"MATCH ROUNDS",
+   ds:"Your rifle does 30% more damage for the rest of the run.",
+   cost:()=>260,
+   own:()=>game.up.dmg?"LOADED":"RIFLE ×1.0",
+   can:()=>!game.up.dmg,
+   buy:()=>{ game.up.dmg=1; player.dmgMul=1.3; }},
+  {id:"beacon",nm:"TOWER BEACON",
+   ds:"Lights the spire. It mends you while you hold the ground around the tower.",
+   cost:()=>200,
+   own:()=>game.up.aura?"LIT":"DARK",
+   can:()=>!game.up.aura,
+   buy:()=>{ game.up.aura=1; }}
+];
+const AURA={r:10,rate:5};
+function buildShopUI(){
+  const grid=$("#shopgrid");
+  SHOP.forEach(it=>{
+    const b=document.createElement("button");
+    b.className="item";
+    b.innerHTML='<div class="nm"></div><div class="ds"></div>'+
+                '<div class="pr"></div><div class="own"></div>';
+    b.querySelector(".nm").textContent=it.nm;
+    b.querySelector(".ds").textContent=it.ds;
+    b.addEventListener("click",()=>buyItem(it));
+    grid.appendChild(b);
+    it.el=b; it.pr=b.querySelector(".pr"); it.ow=b.querySelector(".own");
+  });
+}
+function refreshShop(){
+  el.shopCash.innerHTML=player.cash+"<small>CASH</small>";
+  SHOP.forEach(it=>{
+    const ok=it.can(), c=ok?it.cost():0;
+    it.pr.textContent=ok?("$"+c):"MAXED";
+    it.ow.textContent=it.own();
+    it.el.classList.toggle("off",!ok||player.cash<c);
+  });
+}
+function buyItem(it){
+  if(game.state!=="shop"||!it.can()) return;
+  const c=it.cost();
+  if(player.cash<c){ sfxDry(); return; }
+  player.cash-=c; it.buy(); sfxBuy();
+  refreshShop(); updateHUD();
+}
+/* waves are gated while the shop is open. the panel needs a free cursor, which means
+   giving up pointer lock, so leaving the swarm running would just be a free hit on the
+   player - a proper breather to spend is the better trade */
+function openShop(){
+  if(game.state!=="playing") return;
+  game.state="shop"; game.padLock=true;
+  mouseDown=false; dragLook=false;
+  document.exitPointerLock();
+  el.padhint.classList.remove("on");
+  refreshShop();
+  $("#s-shop").classList.remove("hidden");
+  setMusic(.08,.12);
+}
+function closeShop(){
+  if(game.state!=="shop") return;
+  $("#s-shop").classList.add("hidden");
+  game.state="playing";
+  setMusic(game.between>0?.1:.16,game.between>0?.15:Math.min(.3+game.wave*.09,1));
+  if(pointerLockFailed) return;
+  /* browsers throttle re-locking right after an exit, so give it a second go */
+  const relock=()=>{ if(game.state==="playing") lockPointer(); };
+  relock(); setTimeout(relock,1400);
 }
 
 /* =====================================================================
@@ -1272,11 +1715,26 @@ function resetGame(){
   bolts.forEach(b=>fxRoot.remove(b.m)); bolts.length=0;
   pickups.forEach(p=>pickRoot.remove(p.g)); pickups.length=0;
   floats.forEach(f=>f.el.remove()); floats.length=0;
-  player.pos.set(0,0,10); player.vy=0; player.hp=100; player.ammo=30;
+  for(let i=turrets.length-1;i>=0;i--){
+    turretRoot.remove(turrets[i].parts.group);
+    turretPool.push(turrets[i].parts);            // recycle, same as the robots
+  }
+  turrets.length=0; SLOTS.forEach(s=>s.used=false);
+  for(let i=allies.length-1;i>=0;i--){
+    allyRoot.remove(allies[i].parts.group);
+    allyPool.push(allies[i].parts);
+  }
+  allies.length=0;
+  $("#s-shop").classList.add("hidden");
+  el.padhint.classList.remove("on");
+  player.pos.set(0,0,10); player.vy=0; player.maxhp=100; player.hp=100; player.ammo=30;
   player.reloading=0; player.yaw=Math.PI; player.pitch=0; player.spread=0;
   player.recoil=0; player.recoilV=0; player.noHitTime=0;
+  player.cash=0; player.dmgMul=1;
   game.wave=0; game.kills=0; game.score=0; game.shots=0; game.hits=0;
   game.queue=[]; game.between=0; game.time=0; game.sunT=1;
+  game.turretTier=0; game.padLock=true;
+  game.up.hp=0; game.up.dmg=0; game.up.aura=0;
   updateHUD();
 }
 function beginRun(){
@@ -1289,7 +1747,7 @@ function beginRun(){
   $("#s-win").classList.add("hidden");
   $("#s-pause").classList.add("hidden");
   el.hud.classList.add("on");
-  document.body.requestPointerLock();
+  lockPointer();
   startWave(1);
 }
 function victory(){
@@ -1326,6 +1784,7 @@ document.addEventListener("pointerlockchange",()=>{
       setMusic(.05,.1);
     }
   }else{
+    pointerLockWorked=true;
     if(game.state==="paused"){
       game.state="playing";
       $("#s-pause").classList.add("hidden");
@@ -1337,11 +1796,12 @@ $("#btn-start").addEventListener("click",beginRun);
 $("#btn-again").addEventListener("click",beginRun);
 $("#btn-replay").addEventListener("click",beginRun);
 $("#btn-resume").addEventListener("click",resumeFromPause);
+$("#btn-shopclose").addEventListener("click",closeShop);
 $("#s-pause").addEventListener("click",e=>{
   if(e.target.id==="s-pause") resumeFromPause();
 });
 function resumeFromPause(){
-  if(document.pointerLockElement!==document.body) document.body.requestPointerLock();
+  lockPointer();
   if(pointerLockFailed||!document.body.requestPointerLock){
     game.state="playing"; $("#s-pause").classList.add("hidden");
     setMusic(game.between>0?.1:.16,game.between>0?.15:Math.min(.3+game.wave*.09,1));
@@ -1354,6 +1814,8 @@ addEventListener("keydown",e=>{
     $("#s-pause").classList.remove("hidden"); setMusic(.05,.1);
   }else if(game.state==="paused"){
     resumeFromPause();
+  }else if(game.state==="shop"){
+    closeShop();
   }
 });
 $("#sens").addEventListener("input",e=>{sensitivity=e.target.value/100;$("#sens2").value=e.target.value;});
@@ -1394,6 +1856,10 @@ function updateSun(){
     l.light.intensity=lampOn*1.9;
     l.bulb.material.color.setHSL(.1,.8,lerp(.28,.72,lampOn));
   });
+  if(towerBeacon&&game.up.aura){                 // the beacon burns steady once bought
+    towerBeacon.light.intensity=3.2;
+    towerBeacon.bulb.material.color.setHSL(.3,.72,.66);
+  }
 }
 
 /* =====================================================================
@@ -1553,14 +2019,27 @@ function update(dt){
   /* ---- pickups ---- */
   for(let i=pickups.length-1;i>=0;i--){
     const pk=pickups[i];
-    pk.g.rotation.y+=dt*2.4;
+    pk.g.rotation.y+=dt*(pk.kind==="cash"?3.4:2.4);
     pk.g.position.y=.8+Math.sin(game.time*3+i)*.13;
     pk.life-=dt;
-    if(pk.g.position.distanceTo(new THREE.Vector3(player.pos.x,.9,player.pos.z))<1.5){
-      player.hp=Math.min(100,player.hp+28); sfxPickup(); updateHUD(); pk.life=0;
+    const pdx=pk.g.position.x-player.pos.x, pdz=pk.g.position.z-player.pos.z;
+    if(pdx*pdx+pdz*pdz<2.25&&Math.abs(pk.g.position.y-player.pos.y-.9)<1.6){
+      if(pk.kind==="cash"){ player.cash+=pk.amt; sfxCoin(); }
+      else{ player.hp=Math.min(player.maxhp,player.hp+28); sfxPickup(); }
+      updateHUD(); pk.life=0;
     }
     if(pk.life<=0){ pickRoot.remove(pk.g); pickups.splice(i,1); }
   }
+
+  /* ---- the base: turrets, hired guns, supply pad ---- */
+  if(turrets.length) updateTurrets(dt);
+  if(allies.length) updateAllies(dt);
+  padMat.opacity=.24+Math.sin(game.time*2.6)*.09;
+  padRingMat.opacity=.62+Math.sin(game.time*2.6)*.24;
+  const padD=Math.hypot(player.pos.x-PAD.x,player.pos.z-PAD.z);
+  if(padD>PAD.r+1.2) game.padLock=false;
+  el.padhint.classList.toggle("on",padD<7.5&&padD>PAD.r);
+  if(padD<PAD.r&&!game.padLock&&player.onGround) openShop();
 
   /* ---- fx ---- */
   for(let i=fx.length-1;i>=0;i--){
@@ -1594,8 +2073,13 @@ function update(dt){
 
   /* ---- regen + health ---- */
   player.noHitTime+=dt;
-  if(player.noHitTime>9&&player.hp<55&&game.state==="playing"){
-    player.hp=Math.min(55,player.hp+7*dt); updateHUD();
+  const floor=player.maxhp*.55;
+  if(player.noHitTime>9&&player.hp<floor&&game.state==="playing"){
+    player.hp=Math.min(floor,player.hp+7*dt); updateHUD();
+  }
+  if(game.up.aura&&player.hp<player.maxhp&&
+     Math.hypot(player.pos.x,player.pos.z)<AURA.r){
+    player.hp=Math.min(player.maxhp,player.hp+AURA.rate*dt); updateHUD();
   }
 
   /* ---- clouds + sun ---- */
@@ -1648,6 +2132,7 @@ addEventListener("resize",()=>{
   renderer.setSize(innerWidth,innerHeight);
 });
 player.pos.set(0,0,14); player.yaw=Math.PI;
+buildShopUI();
 updateSun(); updateHUD(); loop();
 })();
 </script>
