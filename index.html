@@ -182,6 +182,10 @@
   .sq.down .nm{color:var(--rust)}
   .sq.down .fill{background:var(--rust)}
   .sq.down .av:after{background:var(--rust);box-shadow:none}
+  /* the avatar slit doubles as the kind marker: a lens, a scope, or a blade */
+  .sq.lance .av:after{background:#ffd24a;box-shadow:0 0 6px rgba(255,210,74,.9)}
+  .sq.sam .av:after{left:9px;top:4px;width:3px;height:13px;
+    background:#ffe27a;box-shadow:0 0 6px rgba(255,226,122,.9)}
 
   #breather{position:absolute;left:50%;top:268px;transform:translateX(-50%);
     font-size:11px;letter-spacing:.4em;color:var(--amber);opacity:0;transition:opacity .3s;
@@ -284,6 +288,12 @@
   .item .pr{font-family:var(--display);font-size:23px;font-weight:700;
     color:var(--amber);margin-top:9px;letter-spacing:.04em}
   .item .own{font-size:9px;letter-spacing:.24em;color:var(--olive);margin-top:5px}
+  /* tiered goods show their rung as pips so the current tier is readable at a glance */
+  .item .tier{display:none;gap:4px;margin-top:7px}
+  .item .tier.on{display:flex}
+  .item .tier i{flex:1;height:5px;background:rgba(242,234,215,.14);
+    border:1px solid rgba(242,234,215,.3)}
+  .item .tier i.lit{background:var(--amber);border-color:var(--amber)}
   @media (max-width:700px){
     #shopgrid{grid-template-columns:repeat(2,minmax(150px,1fr))}
     .item .ds{min-height:0}
@@ -297,7 +307,7 @@
 </head>
 <body>
 
-<div id="buildtag">BUILD 10 &middot; KARAMBIT + EVENTS + SAMURAI</div>
+<div id="buildtag">BUILD 11 &middot; ARMOURY + RONIN + THE PROMISED DUEL</div>
 
 <div id="floaters"></div>
 
@@ -402,7 +412,7 @@
     <b>M</b><span>mute sound</span>
     <b>ESC</b><span>pause</span>
     <b>WHEEL</b><span>swap rifle / karambit</span>
-    <b>F</b><span>inspect the karambit</span>
+    <b>F</b><span>hold to spin the karambit</span>
     <b>LADDER</b><span>climb the watchtower to trade</span>
   </div>
   <button class="btn" id="btn-start">DEPLOY</button>
@@ -1222,8 +1232,19 @@ const knife=new THREE.Group();
 camera.add(knife);
 knife.position.set(.34,-.3,-.46);
 knife.visible=false;
-const knifeArm=new THREE.Group();          // swing/inspect pivot, keeps rest pose separate
+const knifeArm=new THREE.Group();          // swing pivot, keeps rest pose separate
 knife.add(knifeArm);
+/* the flip spin has to turn about the finger ring, not about the handle, or it reads
+   as the whole knife orbiting a point out in front of the hand. so: a pivot parked on
+   the ring hole, and the blade hung off it with the opposite offset - net identity at
+   rest, a real circle around the finger once knifeSpin.rotation.z starts turning */
+const RING_AT={x:0,y:-.055,z:.27};
+const knifeSpin=new THREE.Group();
+knifeSpin.position.set(RING_AT.x,RING_AT.y,RING_AT.z);
+knifeArm.add(knifeSpin);
+const knifeHand=new THREE.Group();
+knifeHand.position.set(-RING_AT.x,-RING_AT.y,-RING_AT.z);
+knifeSpin.add(knifeHand);
 (function buildKnife(){
   const steel=new THREE.MeshLambertMaterial({color:0xb9c4cc});
   const edge =new THREE.MeshLambertMaterial({color:0xf4f8fb});
@@ -1232,7 +1253,7 @@ knife.add(knifeArm);
   const add=(w,h,d,mat,x,y,z,rx)=>{
     const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
     m.position.set(x,y,z); if(rx) m.rotation.x=rx;
-    knifeArm.add(m); return m;
+    knifeHand.add(m); return m;
   };
   add(.055,.075,.3,grip,0,-.03,.1);                     // handle, held blade-forward
   add(.06,.085,.05,bolt,0,-.025,-.04);                  // bolster
@@ -1245,8 +1266,8 @@ knife.add(knifeArm);
     add(half?.02:.026,half?.055:.075,len,half?edge:steel,0,by,bz,ang);
   }
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.062,.017,7,16),grip);
-  ring.position.set(0,-.055,.27); ring.rotation.y=Math.PI/2;
-  knifeArm.add(ring);
+  ring.position.set(RING_AT.x,RING_AT.y,RING_AT.z); ring.rotation.y=Math.PI/2;
+  knifeHand.add(ring);
 })();
 
 /* =====================================================================
@@ -1365,8 +1386,10 @@ function buildSamurai(){
   blob.rotation.x=-Math.PI/2; blob.position.y=.04; blob.scale.setScalar(1.5);
   blob.userData.part="blob"; g.add(blob);
   g.scale.setScalar(cfg.scale);
-  return {group:g,legL:legL,legR:legR,armL:armL,armR:armR,sword:sword,
-          mats:[plate,lac]};
+  /* the duel code indexes mats, the hired-ronin code wants them by name - one array
+     answers to both so the same silhouette can serve on either side of the fight */
+  const mats=[plate,lac]; mats.body=plate; mats.trim=lac; mats.vis=gold;
+  return {group:g,legL:legL,legR:legR,armL:armL,armR:armR,sword:sword,mats:mats};
 }
 
 /* the duel: stalk in, telegraph, lunge, then leave an opening. the rest state is
@@ -1601,13 +1624,20 @@ function fireBolt(e){
 /* =====================================================================
    8. PLAYER + GAME STATE
    ===================================================================== */
+/* the rifle's stock numbers live here so the shop tiers have something to scale
+   against, and so a reset can put them back without hunting magic numbers */
+const GUN={dmg:27,head:66,rate:.098,reload:1.55,
+           dmgStep:.14,rateStep:.09,loadStep:.22};
 const player={pos:new THREE.Vector3(0,0,10),vy:0,onGround:true,hp:100,maxhp:100,
   yaw:Math.PI,pitch:0,bob:0,recoil:0,recoilV:0,kick:0,cash:0,dmgMul:1,
   ammo:30,mag:30,reloading:0,fireCool:0,spread:0,noHitTime:0,shake:0,
-  weapon:0,swing:0,swingHit:false,inspect:0};
+  fireRate:GUN.rate,reloadTime:GUN.reload,
+  weapon:0,swing:0,swingHit:false,inspect:0,spin:0,spinTip:0};
 const game={state:"menu",wave:0,alive:0,kills:0,score:0,shots:0,hits:0,
   best:0,between:0,pending:0,queue:[],spawnCool:0,time:0,sunT:1,
   turretTier:0,padLock:true,shopGround:false,up:{hp:0,dmg:0,aura:0},
+  /* purchased rungs. every one of these is a tier index, never a boolean */
+  gunDmgT:0,gunRateT:0,gunLoadT:0,allyDmgT:0,allyHpT:0,allySlots:3,samSeen:0,
   wShots:0,wHits:0,wHeads:0,wDmg:0,wCount:0,wStart:0};
 let sensitivity=1.0;
 
@@ -1674,7 +1704,7 @@ const shotDir=new THREE.Vector3();
 function startReload(){
   if(game.state!=="playing"||player.weapon!==0) return;
   if(player.reloading>0||player.ammo>=player.mag) return;
-  player.reloading=1.55; sfxReload();
+  player.reloading=player.reloadTime; sfxReload();
 }
 
 /* ---- melee: the karambit ---- */
@@ -1683,18 +1713,23 @@ function setWeapon(w){
   if(player.weapon===w||game.state!=="playing") return;
   player.weapon=w;
   gun.visible=(w===0); knife.visible=(w===1);
-  player.swing=0; player.inspect=0; player.reloading=0;
-  knifeArm.rotation.set(0,0,0);
+  player.swing=0; player.inspect=0; player.spin=0; player.reloading=0;
+  knifeArm.rotation.set(0,0,0); knifeSpin.rotation.set(0,0,0);
   el.rbar.classList.remove("on");
   sfxSwap(); updateHUD();
 }
+/* F holds the spin: the blade keeps turning around the finger ring for as long as the
+   key is down, and on release finishes the revolution it is in rather than stopping
+   halfway. one press on its own still gets you a clean single flip */
+const SPIN_RATE=TAU*1.9;
 function inspectKnife(){
   if(game.state!=="playing"||player.weapon!==1) return;
   if(player.swing>0||player.inspect>0) return;
-  player.inspect=.95; sfxSpin();
+  player.inspect=1; player.spin=0; sfxSpin();
 }
 function swingKnife(){
-  if(player.swing>0||player.inspect>0) return;
+  if(player.swing>0) return;
+  player.inspect=0; player.spin=0;          // a swing always wins over the flourish
   player.swing=MELEE.rate; player.swingHit=false;
   player.kick=1; sfxSwing();
 }
@@ -1724,7 +1759,10 @@ const meleeAt=new THREE.Vector3();
 function shoot(){
   if(player.reloading>0||player.fireCool>0) return;
   if(player.ammo<=0){ sfxDry(); player.fireCool=.3; startReload(); return; }
-  player.ammo--; player.fireCool=.098; game.shots++; game.wShots++;
+  /* carry the overshoot instead of resetting to the full interval. clamping at zero
+     rounds every shot up to a whole frame, which at 60Hz swallowed the first trigger
+     tier outright - .098 and .089 both landed on the sixth frame */
+  player.ammo--; player.fireCool+=player.fireRate; game.shots++; game.wShots++;
   sfxShot();
   player.recoilV+=rand(.055,.085);
   player.kick=1; player.shake=Math.max(player.shake,.16);
@@ -1756,7 +1794,7 @@ function shoot(){
       damageEnemy(ref,0,false,hit.point);            // turned aside, nothing lands
     }else if(ref&&!ref.dead){
       game.hits++; game.wHits++; if(head) game.wHeads++;
-      const dmg=(head?66:27)*player.dmgMul*EVT.playerDmg;
+      const dmg=(head?GUN.head:GUN.dmg)*player.dmgMul*EVT.playerDmg;
       const killed=damageEnemy(ref,dmg,head,hit.point);
       sfxHit(head);
       hitMarker(killed);
@@ -1863,6 +1901,8 @@ function updateHUD(){
     row.fill.style.transform="scaleX("+clamp(a.hp/a.maxhp,0,1)+")";
     row.el.classList.toggle("down",a.down);
     row.el.classList.toggle("hurt",!a.down&&a.hp<=a.maxhp*.4);
+    row.el.classList.toggle("lance",a.kind==="lance");
+    row.el.classList.toggle("sam",a.kind==="sam");
     row.nm.textContent=a.down?ALLY_NAMES[i]+" · DOWN":ALLY_NAMES[i];
   }
   const RING=464.96;
@@ -1920,13 +1960,27 @@ function updateMarks(){
    ===================================================================== */
 const turretRoot=new THREE.Group(); scene.add(turretRoot);
 const allyRoot=new THREE.Group();   scene.add(allyRoot);
-const turrets=[], turretPool=[], allies=[], allyPool=[];
+const turrets=[], turretPool=[], allies=[];
+const allyPools={gun:[],lance:[],sam:[]};
+const allyPool=allyPools.gun;                 // the hired gun is still the default hire
 const TURRET={dmg:14,rate:.75,range:26,tierDmg:8};
 const ALLY  ={dmg:11,rate:.9 ,range:22,speed:4.5,follow:3.6,leash:11,hp:110,
               /* they walk slower than you, so let them jog to close a gap or you
                  would simply sprint away from anything you hired */
               catchUp:9,catchUpMul:1.9};
-const MAX_ALLIES=3;
+/* three hires with genuinely different jobs: the all-rounder, the long shot that
+   trades rate of fire for reach, and the ronin that closes and cuts */
+const ALLY_KINDS={
+  gun  :{nm:"HIRED GUN" ,dmg:ALLY.dmg,rate:ALLY.rate,range:ALLY.range,hp:ALLY.hp,
+         speed:ALLY.speed,tracer:0x8fe0ff,body:0xe4d9bb,trim:0x7d8a4f,vis:0x63d4ff},
+  lance:{nm:"LONG LANCE",dmg:36,rate:2.2,range:34,hp:88 ,speed:4.1,tracer:0xffd88a,
+         body:0xd8ccb2,trim:0x4f5f6d,vis:0xffd24a},
+  sam  :{nm:"RONIN"     ,dmg:34,rate:.75,range:20,hp:185,speed:5.5,tracer:0xffe8a8,
+         melee:true,reach:2.7,body:0x39424f,trim:0x9fb04a,vis:0xffe27a}
+};
+const MAX_ALLY_SLOTS=6;
+function allyDmgMul(){ return 1+.22*game.allyDmgT; }
+function allyHpMul(){ return 1+.25*game.allyHpT; }
 /* scratch vectors: turret and ally fire happens every frame, nothing allocates here */
 const aimA=new THREE.Vector3(), aimB=new THREE.Vector3();
 
@@ -2006,13 +2060,21 @@ function updateTurrets(dt){
 
 /* --- hired allies: same build approach as the robots, friendly palette.
    materials are per ally so a downed one can grey out on its own --- */
-const ALLY_NAMES=["BOLT","RIVET","SCRAP"];
-const ALLY_LIT={body:0xe4d9bb,trim:0x7d8a4f,vis:0x63d4ff};
+const ALLY_NAMES=["BOLT","RIVET","SCRAP","TALLY","CINDER","MAGPIE"];
 const ALLY_OUT={body:0x6b6559,trim:0x3f4335,vis:0x50201a};
-function buildAlly(){
-  const mats={body:new THREE.MeshLambertMaterial({color:ALLY_LIT.body}),
-              trim:new THREE.MeshLambertMaterial({color:ALLY_LIT.trim}),
-              vis :new THREE.MeshBasicMaterial({color:ALLY_LIT.vis})};
+function buildAlly(kind){
+  const k=ALLY_KINDS[kind||"gun"];
+  /* the ronin borrows the duel silhouette outright - same parts contract, our palette */
+  if(k.melee){
+    const s=buildSamurai();
+    s.group.scale.setScalar(1.02);
+    s.mats.body.color.setHex(k.body); s.mats.trim.color.setHex(k.trim);
+    s.mats.vis.color.setHex(k.vis);
+    return s;
+  }
+  const mats={body:new THREE.MeshLambertMaterial({color:k.body}),
+              trim:new THREE.MeshLambertMaterial({color:k.trim}),
+              vis :new THREE.MeshBasicMaterial({color:k.vis})};
   const g=new THREE.Group();
   const add=(w,h,d,mat,x,y,z)=>{
     const m=new THREE.Mesh(bgeo(w,h,d),mat); m.position.set(x,y,z); g.add(m); return m;
@@ -2028,33 +2090,49 @@ function buildAlly(){
   add(.28,.1,.06,mats.vis,0,1.76,-.17);                   // eye slit
   add(.05,.46,.05,mats.trim,0,2.13,.09);                  // antenna reads friendly
   add(.12,.12,.12,mats.vis,0,2.4,.09);
+  if(k.range>28){                                         // the long lance carries it
+    add(.1,.1,1.05,mats.trim,.42,1.28,-.42);
+    add(.14,.14,.16,mats.vis,.42,1.42,-.16);              // scope
+  }
   const blob=new THREE.Mesh(blobGeo,blobMat);
   blob.rotation.x=-Math.PI/2; blob.position.y=.04; blob.scale.setScalar(.9);
   g.add(blob);
   g.scale.setScalar(.95);
   return {group:g,legL:legL,legR:legR,armL:armL,armR:armR,mats:mats};
 }
-/* one place that decides how a hired gun looks, lit or knocked out */
+/* one place that decides how a hire looks, lit or knocked out */
 function allyLook(a){
-  const m=a.parts.mats, c=a.down?ALLY_OUT:ALLY_LIT;
+  const m=a.parts.mats, c=a.down?ALLY_OUT:ALLY_KINDS[a.kind];
   m.body.color.setHex(c.body); m.trim.color.setHex(c.trim); m.vis.color.setHex(c.vis);
   a.parts.group.rotation.z=a.down?.55:0;
   a.parts.group.position.y=a.down?-.22:groundAt(a.parts.group.position.x,
                                                 a.parts.group.position.z,0);
 }
-function spawnAlly(){
-  const a=allyPool.pop()||buildAlly();
+function spawnAlly(kind){
+  kind=kind||"gun";
+  const k=ALLY_KINDS[kind];
+  const a=allyPools[kind].pop()||buildAlly(kind);
   a.legL.rotation.x=a.legR.rotation.x=0; a.armL.rotation.x=a.armR.rotation.x=0;
+  if(a.sword) a.sword.rotation.set(0,0,0);
   const ang=rand(0,TAU);
   a.group.position.set(Math.cos(ang)*5.2,0,Math.sin(ang)*5.2);
   resolve(a.group.position,.45,0);
   a.group.position.y=groundAt(a.group.position.x,a.group.position.z,0);
   allyRoot.add(a.group);
-  const rec={parts:a,hp:ALLY.hp,maxhp:ALLY.hp,down:false,
-    cool:rand(0,.6),target:null,retarget:0,walk:rand(0,6),
+  const hp=Math.round(k.hp*allyHpMul());
+  const rec={parts:a,kind:kind,hp:hp,maxhp:hp,down:false,
+    cool:rand(0,.6),swing:0,target:null,retarget:0,walk:rand(0,6),
     avoid:0,avoidDir:1,lastX:a.group.position.x,lastZ:a.group.position.z};
   allies.push(rec);
   allyLook(rec);
+}
+/* plating bought mid-run has to reach the hires already standing in the field */
+function refitAllies(){
+  for(let i=0;i<allies.length;i++){
+    const a=allies[i], max=Math.round(ALLY_KINDS[a.kind].hp*allyHpMul());
+    a.hp=Math.min(max,a.hp+(max-a.maxhp)); a.maxhp=max;
+  }
+  updateHUD();
 }
 function hurtAlly(a,dmg){
   if(a.down) return;
@@ -2108,22 +2186,30 @@ function updateAllies(dt){
       a.parts.armR.rotation.x=lerp(a.parts.armR.rotation.x,0,dt*6);
       continue;
     }
+    const k=ALLY_KINDS[a.kind];
     a.retarget-=dt;
     if(a.retarget<=0||!a.target||a.target.dead){
-      a.retarget=.25; a.target=nearestEnemy(p.x,p.z,ALLY.range);
+      a.retarget=.25; a.target=nearestEnemy(p.x,p.z,k.range);
     }
     const pdx=player.pos.x-p.x, pdz=player.pos.z-p.z;
     const pd=Math.hypot(pdx,pdz)||1e-4;
     const e=(a.target&&!a.target.dead)?a.target:null;
-    /* hold position and shoot; only close up when the player gets too far ahead */
-    const walking=e?pd>ALLY.leash:pd>ALLY.follow;
+    /* shooters hold position and fire; the ronin has to walk onto whatever it is
+       cutting, so its destination is the target rather than the player */
+    let tox=pdx, toz=pdz, tod=pd;
+    if(e&&k.melee){
+      tox=e.g.position.x-p.x; toz=e.g.position.z-p.z;
+      tod=Math.hypot(tox,toz)||1e-4;
+    }
+    const walking=(e&&k.melee)?tod>k.reach*.8
+                 :e?pd>ALLY.leash:pd>ALLY.follow;
     if(walking){
-      const sp=ALLY.speed*(pd>ALLY.catchUp?ALLY.catchUpMul:1);
+      const sp=k.speed*(pd>ALLY.catchUp?ALLY.catchUpMul:1);
       const step=sp*dt;
-      let mx=pdx/pd, mz=pdz/pd;
+      let mx=tox/tod, mz=toz/tod;
       if(a.avoid>0){                            // same sidestep the robots use
         a.avoid-=dt;
-        mx=pdx/pd*.5-(pdz/pd)*a.avoidDir; mz=pdz/pd*.5+(pdx/pd)*a.avoidDir;
+        mx=tox/tod*.5-(toz/tod)*a.avoidDir; mz=toz/tod*.5+(tox/tod)*a.avoidDir;
         const l=Math.hypot(mx,mz); mx/=l; mz/=l;
       }
       p.x+=mx*step; p.z+=mz*step;
@@ -2145,18 +2231,37 @@ function updateAllies(dt){
 
     if(e){
       const dx=e.g.position.x-p.x, dz=e.g.position.z-p.z;
+      const d2=dx*dx+dz*dz;
       a.parts.group.rotation.y=Math.atan2(dx,dz);
       if(a.cool>0) a.cool-=dt;
-      if(a.cool<=0&&dx*dx+dz*dz<ALLY.range*ALLY.range){
-        a.cool=ALLY.rate;
-        autoShot(p.x,p.y+1.15,p.z,e,ALLY.dmg,0x8fe0ff);
-        a.parts.armR.rotation.x=-1.3;
+      if(a.cool<=0&&d2<(k.melee?k.reach*k.reach:k.range*k.range)){
+        a.cool=k.rate;
+        if(k.melee){
+          a.swing=.26;
+          allyAt.set(e.g.position.x,e.g.position.y+1.2*e.cfg.scale,e.g.position.z);
+          sparks(allyAt,k.tracer); sfxSlash();
+          /* the ordinary damage path on purpose: a parry still stops the ronin, so
+             the karambit stays the only thing that can finish the duel boss */
+          damageEnemy(e,k.dmg*allyDmgMul(),false,allyAt);
+        }else{
+          autoShot(p.x,p.y+1.15,p.z,e,k.dmg*allyDmgMul(),k.tracer);
+          a.parts.armR.rotation.x=-1.3;
+        }
         if(e.dead) a.target=null;
       }
     }else a.parts.group.rotation.y=Math.atan2(pdx,pdz);
-    a.parts.armR.rotation.x=lerp(a.parts.armR.rotation.x,0,dt*7);
+    if(a.swing>0){                                   // the ronin's cut, sword and arm
+      a.swing-=dt;
+      const sw=Math.sin(clamp(1-a.swing/.26,0,1)*Math.PI);
+      a.parts.armR.rotation.x=-2.1+sw*3.2;
+      if(a.parts.sword) a.parts.sword.rotation.x=-2.3+sw*3.5;
+    }else{
+      a.parts.armR.rotation.x=lerp(a.parts.armR.rotation.x,0,dt*7);
+      if(a.parts.sword) a.parts.sword.rotation.x=lerp(a.parts.sword.rotation.x,-.3,dt*6);
+    }
   }
 }
+const allyAt=new THREE.Vector3();
 
 /* --- the tower takes hits of its own --- */
 const towerHit=new THREE.Vector3();
@@ -2192,16 +2297,49 @@ const SHOP=[
   {id:"slug",nm:"HEAVY SLUGS",
    ds:"Every turret you own hits harder. Three tiers of ammunition.",
    cost:()=>[140,220,320][game.turretTier],
-   own:()=>"TIER "+game.turretTier+" / 3 · "+
-           (TURRET.dmg+game.turretTier*TURRET.tierDmg)+" DMG",
+   tiers:3, at:()=>game.turretTier,
+   own:()=>(TURRET.dmg+game.turretTier*TURRET.tierDmg)+" DMG PER BOLT",
    can:()=>game.turretTier<3,
    buy:()=>{ game.turretTier++; }},
   {id:"ally",nm:"HIRED GUN",
    ds:"A friendly machine that trails you and opens up on anything that gets close.",
    cost:()=>150+90*allies.length,
-   own:()=>allies.length+" / "+MAX_ALLIES+" HIRED",
-   can:()=>allies.length<MAX_ALLIES,
-   buy:()=>{ spawnAlly(); }},
+   own:()=>allies.length+" / "+game.allySlots+" HIRED",
+   can:()=>allies.length<game.allySlots,
+   buy:()=>{ spawnAlly("gun"); }},
+  {id:"lance",nm:"LONG LANCE",
+   ds:"A marksman rig. Half the rate of fire, a much harder hit, and it reaches "+
+      "clear across the village.",
+   cost:()=>210+90*allies.length,
+   own:()=>ALLY_KINDS.lance.dmg+" DMG · "+ALLY_KINDS.lance.range+"M REACH",
+   can:()=>allies.length<game.allySlots,
+   buy:()=>{ spawnAlly("lance"); }},
+  {id:"ronin",nm:"RONIN",
+   ds:"A hired blade in the same armour the duellist wears. Walks onto them and cuts.",
+   cost:()=>280+90*allies.length,
+   own:()=>ALLY_KINDS.sam.dmg+" DMG · "+ALLY_KINDS.sam.hp+" HP · MELEE",
+   can:()=>allies.length<game.allySlots,
+   buy:()=>{ spawnAlly("sam"); }},
+  {id:"barracks",nm:"BARRACKS",
+   ds:"Frees another billet on the tower so you can keep one more hire on the payroll.",
+   cost:()=>240+160*(game.allySlots-3),
+   own:()=>game.allySlots+" / "+MAX_ALLY_SLOTS+" BILLETS",
+   can:()=>game.allySlots<MAX_ALLY_SLOTS,
+   buy:()=>{ game.allySlots++; }},
+  {id:"allydmg",nm:"ALLY ORDNANCE",
+   ds:"Better ammunition for everyone you have hired. Three tiers.",
+   cost:()=>[180,280,400][game.allyDmgT],
+   tiers:3, at:()=>game.allyDmgT,
+   own:()=>"HIRES ×"+allyDmgMul().toFixed(2),
+   can:()=>game.allyDmgT<3,
+   buy:()=>{ game.allyDmgT++; }},
+  {id:"allyhp",nm:"ALLY PLATING",
+   ds:"Thicker hulls on every hire, fitted to the ones already in the field. Three tiers.",
+   cost:()=>[160,250,360][game.allyHpT],
+   tiers:3, at:()=>game.allyHpT,
+   own:()=>"HULLS ×"+allyHpMul().toFixed(2),
+   can:()=>game.allyHpT<3,
+   buy:()=>{ game.allyHpT++; refitAllies(); }},
   {id:"hp",nm:"PLATE ARMOUR",
    ds:"Raises your condition ceiling from 100 to 150, and patches you up on the spot.",
    cost:()=>180,
@@ -2209,11 +2347,29 @@ const SHOP=[
    can:()=>!game.up.hp,
    buy:()=>{ game.up.hp=1; player.maxhp=150; player.hp=150; }},
   {id:"rounds",nm:"MATCH ROUNDS",
-   ds:"Your rifle does 30% more damage for the rest of the run.",
-   cost:()=>260,
-   own:()=>game.up.dmg?"LOADED":"RIFLE ×1.0",
-   can:()=>!game.up.dmg,
-   buy:()=>{ game.up.dmg=1; player.dmgMul=1.3; }},
+   ds:"Hotter loads. Every tier puts more behind each shot, rifle and blade alike.",
+   cost:()=>[170,260,380][game.gunDmgT],
+   tiers:3, at:()=>game.gunDmgT,
+   own:()=>"DAMAGE ×"+player.dmgMul.toFixed(2),
+   can:()=>game.gunDmgT<3,
+   buy:()=>{ game.gunDmgT++; game.up.dmg=game.gunDmgT;
+             player.dmgMul=1+GUN.dmgStep*game.gunDmgT; }},
+  {id:"trigger",nm:"TUNED TRIGGER",
+   ds:"Lighter sear and a shorter reset. The rifle cycles faster with every tier.",
+   cost:()=>[150,240,350][game.gunRateT],
+   tiers:3, at:()=>game.gunRateT,
+   own:()=>Math.round(1/player.fireRate)+" RPS",
+   can:()=>game.gunRateT<3,
+   buy:()=>{ game.gunRateT++;
+             player.fireRate=GUN.rate*(1-GUN.rateStep*game.gunRateT); }},
+  {id:"springs",nm:"RECOIL SPRINGS",
+   ds:"A faster magazine change, so a dry rifle costs you less of the wave.",
+   cost:()=>[120,190,280][game.gunLoadT],
+   tiers:3, at:()=>game.gunLoadT,
+   own:()=>player.reloadTime.toFixed(2)+"S RELOAD",
+   can:()=>game.gunLoadT<3,
+   buy:()=>{ game.gunLoadT++;
+             player.reloadTime=GUN.reload-GUN.loadStep*game.gunLoadT; }},
   {id:"beacon",nm:"TOWER BEACON",
    ds:"Lights the spire. It mends you while you hold the ground around the tower.",
    cost:()=>200,
@@ -2241,12 +2397,21 @@ function buildShopUI(){
     const b=document.createElement("button");
     b.className="item";
     b.innerHTML='<div class="nm"></div><div class="ds"></div>'+
-                '<div class="pr"></div><div class="own"></div>';
+                '<div class="pr"></div><div class="own"></div><div class="tier"></div>';
     b.querySelector(".nm").textContent=it.nm;
     b.querySelector(".ds").textContent=it.ds;
     b.addEventListener("click",()=>buyItem(it));
     grid.appendChild(b);
     it.el=b; it.pr=b.querySelector(".pr"); it.ow=b.querySelector(".own");
+    it.tr=b.querySelector(".tier");
+    /* tiered goods carry a pip per rung; the rest never show the row at all */
+    if(it.tiers){
+      it.tr.classList.add("on");
+      it.pips=[];
+      for(let i=0;i<it.tiers;i++){
+        const p=document.createElement("i"); it.tr.appendChild(p); it.pips.push(p);
+      }
+    }
   });
 }
 /* from the salvage ring on the ground you can only buy the repair, never the catalogue */
@@ -2261,6 +2426,10 @@ function refreshShop(){
     it.pr.textContent=sells?(it.can()?"$"+c:"MAXED"):"NO ACCESS";
     it.ow.textContent=it.own();
     it.el.classList.toggle("off",!ok||player.cash<c);
+    if(it.pips){
+      const at=it.at();
+      for(let i=0;i<it.pips.length;i++) it.pips[i].classList.toggle("lit",i<at);
+    }
   });
 }
 function buyItem(it){
@@ -2351,7 +2520,7 @@ const EVENTS=[
   {id:"samurai",tone:"boss",min:5,weight:20,solo:true,
    name:"A SAMURAI APPROACHES",sub:"BLADES ONLY · BULLETS WILL NOT PASS",
    end:"THE DUEL IS OVER",
-   on(){ setWeapon(1); spawnEnemy("samurai"); setMusic(.2,1); },
+   on(){ game.samSeen++; setWeapon(1); spawnEnemy("samurai"); setMusic(.2,1); },
    off(){ setMusic(.1,.15); }}
 ];
 
@@ -2362,12 +2531,30 @@ function eventBanner(a,b,tone){
   void el.event.offsetWidth;
   el.event.classList.add("show");
 }
+/* the duel is the one event a run is promised. from wave 10 a rising forced chance
+   rides alongside the ordinary roll and reaches certainty on the last wave, so it
+   lands somewhere in the back half without ever landing on the same wave twice */
+const SAM_FROM=10;
+function samuraiPressure(n){
+  if(game.samSeen>0||n<SAM_FROM||n>MAX_WAVE) return 0;
+  return (n-SAM_FROM+1)/(MAX_WAVE-SAM_FROM+1);
+}
+/* and once you have beaten him he stops being the headline: each duel survived
+   cuts his share of the ordinary roll, without ever ruling a rematch out */
+function evWeight(e){
+  return e.id==="samurai"?e.weight*Math.pow(.35,game.samSeen):e.weight;
+}
+function eventById(id){
+  for(let i=0;i<EVENTS.length;i++) if(EVENTS[i].id===id) return EVENTS[i];
+  return null;
+}
 function rollEvent(n){
+  if(Math.random()<samuraiPressure(n)) return startEvent(eventById("samurai"));
   if(Math.random()>=EVENT_CHANCE) return null;
   const pool=EVENTS.filter(e=>n>=e.min);
-  let tot=0; for(let i=0;i<pool.length;i++) tot+=pool[i].weight;
+  let tot=0; for(let i=0;i<pool.length;i++) tot+=evWeight(pool[i]);
   let r=Math.random()*tot;
-  for(let i=0;i<pool.length;i++){ r-=pool[i].weight; if(r<=0) return startEvent(pool[i]); }
+  for(let i=0;i<pool.length;i++){ r-=evWeight(pool[i]); if(r<=0) return startEvent(pool[i]); }
   return null;
 }
 function startEvent(ev){
@@ -2476,13 +2663,14 @@ function resetGame(){
   turrets.length=0; SLOTS.forEach(s=>s.used=false);
   for(let i=allies.length-1;i>=0;i--){
     allyRoot.remove(allies[i].parts.group);
-    allyPool.push(allies[i].parts);
+    allyPools[allies[i].kind].push(allies[i].parts);
   }
   allies.length=0;
   marks.forEach(m=>{m.style.display="none";});
   endEvent(true);
-  player.weapon=0; player.swing=0; player.inspect=0;
-  gun.visible=true; knife.visible=false; knifeArm.rotation.set(0,0,0);
+  player.weapon=0; player.swing=0; player.inspect=0; player.spin=0; player.spinTip=0;
+  gun.visible=true; knife.visible=false;
+  knifeArm.rotation.set(0,0,0); knifeSpin.rotation.set(0,0,0);
   $("#s-shop").classList.add("hidden");
   el.padhint.classList.remove("on");
   el.bonus.classList.remove("show");
@@ -2492,9 +2680,12 @@ function resetGame(){
   player.reloading=0; player.yaw=Math.PI; player.pitch=0; player.spread=0;
   player.recoil=0; player.recoilV=0; player.noHitTime=0;
   player.cash=0; player.dmgMul=1;
+  player.fireRate=GUN.rate; player.reloadTime=GUN.reload;
   game.wave=0; game.kills=0; game.score=0; game.shots=0; game.hits=0;
   game.queue=[]; game.between=0; game.time=0; game.sunT=1;
   game.turretTier=0; game.padLock=true; game.shopGround=false;
+  game.gunDmgT=0; game.gunRateT=0; game.gunLoadT=0;
+  game.allyDmgT=0; game.allyHpT=0; game.allySlots=3; game.samSeen=0;
   game.wShots=0; game.wHits=0; game.wHeads=0; game.wDmg=0;
   game.wCount=0; game.wStart=0;
   game.up.hp=0; game.up.dmg=0; game.up.aura=0;
@@ -2706,13 +2897,13 @@ function update(dt){
                          player.pos.z+rand(-sh,sh));
 
   /* ---- weapon ---- */
-  player.fireCool=Math.max(0,player.fireCool-dt);
+  player.fireCool=Math.max(-dt,player.fireCool-dt);   // one frame of carry, no more
   player.spread=Math.max(0,player.spread-dt*.09);
   if(mouseDown&&game.state==="playing"){ if(player.weapon) swingKnife(); else shoot(); }
   if(player.reloading>0){
     player.reloading-=dt;
     el.rbar.classList.add("on");
-    el.rfill.style.width=((1-player.reloading/1.55)*100)+"%";
+    el.rfill.style.width=((1-player.reloading/player.reloadTime)*100)+"%";
     if(player.reloading<=0){ player.ammo=player.mag; updateHUD(); }
   }else el.rbar.classList.remove("on");
 
@@ -2726,7 +2917,9 @@ function update(dt){
   flash.visible=player.kick>.6&&player.weapon===0;
   flashLight.intensity=Math.max(0,flashLight.intensity-dt*26);
 
-  /* ---- karambit: swing arc, then the inspect twirl ---- */
+  /* ---- karambit: swing arc, then the finger spin ---- */
+  const holdSpin=player.weapon===1&&game.state==="playing"&&!mouseDown&&!!keys.KeyF;
+  if(holdSpin&&player.swing<=0&&!player.inspect) inspectKnife();
   if(player.swing>0){
     player.swing-=dt;
     if(!player.swingHit&&player.swing<=MELEE.rate*.6){ player.swingHit=true; meleeHit(); }
@@ -2738,14 +2931,24 @@ function update(dt){
     knife.position.z=-.46-arc*.3;
     if(player.swing<=0) player.swing=0;
   }else if(player.inspect>0){
-    player.inspect-=dt;
-    const k=1-clamp(player.inspect/.95,0,1);
-    knifeArm.rotation.z=k*TAU*2;                          // two clean rotations
-    knifeArm.rotation.y=Math.sin(k*Math.PI)*.6;
-    knifeArm.rotation.x=Math.sin(k*Math.PI)*-.35;
-    knife.position.z=-.46-Math.sin(k*Math.PI)*.09;
-    if(player.inspect<=0){ player.inspect=0; knifeArm.rotation.set(0,0,0); }
+    player.spin+=SPIN_RATE*dt;
+    if(player.spin>=TAU){                                 // one revolution in the bag
+      player.spin-=TAU;
+      if(holdSpin) sfxSpin(); else { player.spin=0; player.inspect=0; }
+    }
+    /* turn about the ring, tipped off the screen plane so it reads as a circle with
+       depth rather than a flat pinwheel. rotation order XYZ puts the yaw outside the
+       spin, so it tilts the plane of the circle instead of twisting the blade */
+    player.spinTip=lerp(player.spinTip,1,dt*10);
+    knifeSpin.rotation.z=player.spin;
+    knifeSpin.rotation.y=-.42*player.spinTip;
+    knifeArm.rotation.set(0,0,0);
+    knife.position.z=-.46-player.spinTip*.05;
+    if(!player.inspect){ player.spin=0; knifeSpin.rotation.set(0,0,0); }
   }else if(player.weapon===1){
+    player.spinTip=lerp(player.spinTip,0,dt*14);
+    knifeSpin.rotation.z=lerp(knifeSpin.rotation.z,0,dt*14);
+    knifeSpin.rotation.y=lerp(knifeSpin.rotation.y,0,dt*14);
     knifeArm.rotation.z=lerp(knifeArm.rotation.z,0,dt*12);
     knifeArm.rotation.y=lerp(knifeArm.rotation.y,0,dt*12);
     knifeArm.rotation.x=lerp(knifeArm.rotation.x,0,dt*12);
@@ -2792,7 +2995,9 @@ function update(dt){
     e.pick-=dt;
     if(e.pick<=0){
       e.pick=1.2;
-      e.ally=(!tower&&allies.length&&Math.random()<.5)?nearestAlly(p.x,p.z,9):null;
+      /* a bigger payroll draws more fire - hiring buys you guns, not cover */
+      const pull=.42+Math.min(.28,allies.length*.06);
+      e.ally=(!tower&&allies.length&&Math.random()<pull)?nearestAlly(p.x,p.z,9):null;
     }
     if(e.ally&&e.ally.down) e.ally=null;
     const ap=e.ally?e.ally.parts.group.position:null;
