@@ -78,6 +78,10 @@
     background:repeating-linear-gradient(90deg,transparent 0 27px,
       rgba(8,7,6,.75) 27px 30px)}
   #hpbar.low #hpfill{background:linear-gradient(180deg,#e8683f,#a82a17)}
+  /* the bar breathes while the patch-up is actually ticking, so you can see it work */
+  #hpbar.regen{border-color:#a8f0c0;box-shadow:0 0 14px rgba(120,240,170,.5)}
+  #hpbar.regen #hpfill{animation:regenpulse 1.15s ease-in-out infinite}
+  @keyframes regenpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.42)}}
   #hpnum{font-family:var(--display);font-size:48px;line-height:1;letter-spacing:.02em;
     margin-top:9px;font-weight:700;text-shadow:0 2px 10px rgba(0,0,0,.8)}
   #hpnum small{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--dust);
@@ -123,6 +127,51 @@
   #event.bad .e1{color:var(--rust)}
   #event.good .e1{color:#9fe07a}
   #event.boss .e1{color:#ff2a12;font-size:52px}
+  #event.night .e1{color:#9db8ff}
+  #event.dawn .e1{color:#ffd88a}
+
+  /* nightfall is its own layer over the time of day, so it can sit under rain or a
+     red moon instead of fighting them for the sky */
+  #nightveil{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:8;
+    transition:opacity 1.6s;background:radial-gradient(ellipse at 50% 45%,
+      rgba(10,16,34,.12) 0%,rgba(6,10,24,.5) 68%,rgba(4,7,18,.72) 100%)}
+  #nightveil.on{opacity:1}
+
+  /* --- kill streak, riding above the cash plate --- */
+  #streak{position:absolute;left:24px;bottom:238px;display:flex;align-items:baseline;
+    gap:10px;padding:6px 14px;opacity:0;transition:opacity .2s}
+  #streak.on{opacity:1}
+  #streak .mul{font-family:var(--display);font-size:27px;font-weight:700;line-height:1;
+    color:var(--amber);letter-spacing:.03em}
+  #streak .lbl{font-size:9px;letter-spacing:.26em;color:var(--dust)}
+  #streak.hot .mul{color:#ff8c3c;text-shadow:0 0 12px rgba(255,140,60,.7)}
+
+  /* --- perk draft: three cards, same plate language as the shop --- */
+  #s-perk{justify-content:center}
+  #perkgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:14px;width:min(880px,94vw);margin:20px 0 22px}
+  .perk{position:relative;background:rgba(14,12,10,.82);
+    border:1px solid rgba(242,234,215,.4);padding:18px 17px 20px;text-align:left;
+    color:var(--bone);font-family:var(--mono);cursor:pointer;pointer-events:auto;
+    transition:.15s}
+  .perk:before{content:"";position:absolute;inset:3px;
+    border:1px solid rgba(242,234,215,.12);pointer-events:none}
+  .perk:hover,.perk:focus-visible{background:rgba(48,38,24,.9);
+    border-color:var(--amber);outline:none;transform:translateY(-3px)}
+  .perk .nm{font-family:var(--display);font-size:23px;font-weight:700;
+    letter-spacing:.06em;margin-bottom:8px}
+  .perk .ds{font-size:10px;line-height:1.7;color:var(--dust);letter-spacing:.05em;
+    min-height:54px}
+  .perk .have{font-size:9px;letter-spacing:.24em;color:var(--olive);margin-top:10px}
+
+  /* --- trap placement prompt --- */
+  #placehint{position:absolute;left:50%;bottom:31%;transform:translateX(-50%);
+    text-align:center;opacity:0;transition:opacity .2s;pointer-events:none}
+  #placehint.on{opacity:1}
+  #placehint .p1{font-family:var(--display);font-size:26px;font-weight:700;
+    letter-spacing:.06em;text-shadow:0 3px 14px rgba(0,0,0,.9)}
+  #placehint .p2{font-size:10px;letter-spacing:.34em;color:var(--dust);margin-top:5px}
+  #placehint.bad .p1{color:var(--rust)}
 
   /* rain veil - one flat overlay, no per-drop DOM */
   #rainveil{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:9;
@@ -204,6 +253,7 @@
     #hpnum{font-size:36px}
     #hpbar{height:22px}
     #cash{left:16px;bottom:150px;padding:6px 11px;gap:9px}
+    #streak{left:16px;bottom:202px;padding:5px 11px}
     #cashnum{font-size:24px}
     #squad{left:16px}
     .sq{width:150px;padding:5px 8px}
@@ -307,7 +357,7 @@
 </head>
 <body>
 
-<div id="buildtag">BUILD 11 &middot; ARMOURY + RONIN + THE PROMISED DUEL</div>
+<div id="buildtag">BUILD 12 &middot; PERKS + NIGHTFALL + TRAPS + SIEGE</div>
 
 <div id="floaters"></div>
 
@@ -346,6 +396,11 @@
   </div>
 
   <div id="squad"></div>
+
+  <div class="plate" id="streak">
+    <div class="mul">×1.0</div>
+    <div class="lbl">STREAK <b id="strk-n">0</b></div>
+  </div>
 
   <div class="plate" id="cash">
     <svg class="coin" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
@@ -392,11 +447,13 @@
   <div id="bonus"><div class="bt"></div><div class="bl"></div></div>
   <div id="breather"></div>
   <div id="padhint"></div>
+  <div id="placehint"><div class="p1"></div><div class="p2"></div></div>
 </div>
 
 <div id="dmg"></div>
 <div id="lowhp"></div>
 <div id="rainveil"></div>
+<div id="nightveil"></div>
 
 <div class="screen" id="s-start">
   <div class="eyebrow">SUNDOWN &middot; OUTER FARMLANDS</div>
@@ -468,6 +525,14 @@
   <div id="shopgrid"></div>
   <button class="btn" id="btn-shopclose">BACK TO THE LINE</button>
   <div class="hint">Waves hold while you trade &middot; step out of the ring to trade again</div>
+</div>
+
+<div class="screen hidden" id="s-perk">
+  <div class="eyebrow" id="perknote">FIELD PROMOTION</div>
+  <h1 style="font-size:clamp(28px,5.4vw,56px)">TAKE SOMETHING WITH YOU</h1>
+  <div class="rule" style="margin:16px 0 0"></div>
+  <div id="perkgrid"></div>
+  <div class="hint">One choice, kept for the rest of the run &middot; the wave waits</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -644,6 +709,26 @@ function sfxEventEnd(){
   if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
   tone("triangle",392,t,.2,.02,.4);
   tone("triangle",294,t+.16,.2,.02,.7);
+}
+/* tripwire: a hard two-note sonar ping that cuts through the rest of the mix */
+function sfxPing(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  tone("sine",1480,t,.3,.004,.12);
+  tone("sine",1180,t+.1,.26,.004,.26);
+}
+/* the siege engine ranging in - a slow rising whine, the fair warning before a shell */
+function sfxRange(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  tone("sawtooth",150,t,.14,.05,1.9,AUD.sfx,420);
+}
+function sfxShell(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  const s=noiseSrc(); const f=AUD.ctx.createBiquadFilter();
+  f.type="lowpass"; f.frequency.setValueAtTime(900,t);
+  f.frequency.exponentialRampToValueAtTime(90,t+.6);
+  const g=AUD.ctx.createGain(); env(g,t,.7,.01,.62);
+  s.connect(f); f.connect(g); g.connect(AUD.sfx); s.start(t); s.stop(t+.7);
+  tone("sine",70,t,.6,.01,.5,AUD.sfx,34);
 }
 function sfxBuy(){
   if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
@@ -1290,7 +1375,11 @@ const TYPES={
           visor:0xff3b2f,score:3,ranged:true},
   /* the duel boss: turns bullets aside, only a blade gets through */
   samurai:{hp:560,speed:3.6,dmg:27,reach:3.0,scale:1.5,body:0x2a2e39,trim:0x8e1d1d,
-          visor:0xffd24a,score:15,boss:true,immune:true}
+          visor:0xffd24a,score:15,boss:true,immune:true},
+  /* the siege engine: never takes a step, shells the tower from range. it dies to
+     ordinary gunfire - the whole point is that you have to leave the line to reach it */
+  siege  :{hp:820,speed:0,dmg:0,reach:99,scale:1.5,body:0x4c4438,trim:0x2b2721,
+          visor:0xff7a2b,score:10,siege:true}
 };
 
 /* shared geometry cache - stops re-allocating the same boxes every spawn */
@@ -1310,7 +1399,7 @@ function sparkMat(c){
   return sparkMats[c];
 }
 const fragMats={};
-const pools={grunt:[],runner:[],heavy:[],samurai:[]};
+const pools={grunt:[],runner:[],heavy:[],samurai:[],siege:[]};
 
 function buildRobot(t){
   const cfg=TYPES[t];
@@ -1393,6 +1482,129 @@ function buildSamurai(){
      answers to both so the same silhouette can serve on either side of the fight */
   const mats=[plate,lac]; mats.body=plate; mats.trim=lac; mats.vis=gold;
   return {group:g,legL:legL,legR:legR,armL:armL,armR:armR,sword:sword,mats:mats};
+}
+
+/* the siege engine: a mortar on a carriage. same parts contract as the robots so the
+   shared spawn, damage and death code needs no special case - the legs simply never move */
+function buildSiege(){
+  const cfg=TYPES.siege;
+  const g=new THREE.Group();
+  const plate=new THREE.MeshLambertMaterial({color:cfg.body});
+  const iron =new THREE.MeshLambertMaterial({color:cfg.trim});
+  const hot  =new THREE.MeshBasicMaterial({color:cfg.visor});
+  const add=(w,h,d,mat,x,y,z,part,par)=>{
+    const m=new THREE.Mesh(bgeo(w,h,d),mat);
+    m.position.set(x,y,z);
+    m.userData.part=part||"body"; (par||g).add(m); return m;
+  };
+  const legL=add(.3,.5,1.5,iron,-.72,.25,.1);            // outriggers, not legs
+  const legR=add(.3,.5,1.5,iron, .72,.25,.1);
+  add(1.9,.66,1.5,plate,0,.75,0);                        // carriage
+  add(2.1,.2,.3,iron,0,1.1,.62);
+  for(let i=0;i<2;i++){                                   // wheels
+    const w=new THREE.Mesh(new THREE.TorusGeometry(.5,.13,6,12),iron);
+    w.position.set(i?1.02:-1.02,.5,.1); w.rotation.y=Math.PI/2; g.add(w);
+  }
+  /* the tube rides in its own group so the wind-up can visibly raise it */
+  const barrel=new THREE.Group();
+  barrel.position.set(0,1.16,.1); g.add(barrel);
+  const tube=add(.54,.54,2.3,plate,0,.34,-.95,"body",barrel);
+  tube.rotation.x=0;
+  add(.62,.62,.3,iron,0,.34,.16,"body",barrel);
+  const mouth=add(.4,.4,.12,hot,0,.34,-2.05,"head",barrel);
+  const armL=add(.22,.5,.22,iron,-.86,1.2,.5);
+  const armR=add(.22,.5,.22,iron, .86,1.2,.5);
+  add(.8,.5,.6,plate,0,1.6,.66,"head");                  // the crew box is the weak spot
+  add(.5,.12,.08,hot,0,1.66,.36,"head");
+  const blob=new THREE.Mesh(blobGeo,blobMat);
+  blob.rotation.x=-Math.PI/2; blob.position.y=.04; blob.scale.setScalar(2.1);
+  blob.userData.part="blob"; g.add(blob);
+  g.scale.setScalar(cfg.scale);
+  const mats=[plate,iron]; mats.body=plate; mats.trim=iron; mats.vis=hot;
+  return {group:g,legL:legL,legR:legR,armL:armL,armR:armR,barrel:barrel,mats:mats};
+}
+
+/* one shell in flight, plus the ground ring that warns you where it lands */
+const SIEGE={windup:2.6,cool:3.4,flight:1.5,dmg:150,splash:6,scatter:2.4};
+const shells=[];
+const shellGeo=new THREE.SphereGeometry(.34,7,6);
+const matShell=new THREE.MeshLambertMaterial({color:0x30302e});
+const matMark=new THREE.MeshBasicMaterial({color:0xff5a2a,transparent:true,
+  opacity:.5,depthWrite:false,side:THREE.DoubleSide});
+const markGeo=new THREE.RingGeometry(SIEGE.splash*.55,SIEGE.splash,26);
+function siegeMark(){
+  const m=new THREE.Mesh(markGeo,matMark);
+  m.rotation.x=-Math.PI/2; m.visible=false; fxRoot.add(m); return m;
+}
+function updateSiege(e,dt){
+  const p=e.g.position;
+  /* it always faces its target, so the tube itself is the telegraph */
+  e.g.rotation.y=Math.atan2(TOWER.x-p.x,TOWER.z-p.z);
+  e.stT-=dt;
+  if(!e.mark) e.mark=siegeMark();
+
+  if(e.st==="load"){
+    const k=1-clamp(e.stT/SIEGE.windup,0,1);
+    e.parts.barrel.rotation.x=lerp(e.parts.barrel.rotation.x,-.62,dt*3);
+    e.mark.visible=true;
+    e.mark.scale.setScalar(lerp(1.9,1,k));       // the ring closes as the shot nears
+    matMark.opacity=.28+k*.4;
+    e.parts.mats.vis.color.setHSL(.06,1,.45+k*.35);
+    if(e.stT<=0){
+      e.st="rest"; e.stT=SIEGE.cool;
+      e.mark.visible=false;
+      fireShell(e);
+    }
+  }else{
+    e.parts.barrel.rotation.x=lerp(e.parts.barrel.rotation.x,-.2,dt*4);
+    if(e.stT<=0){
+      e.st="load"; e.stT=SIEGE.windup;
+      /* pick and show the landing spot a full wind-up before the shell exists */
+      e.tx=TOWER.x+rand(-SIEGE.scatter,SIEGE.scatter);
+      e.tz=TOWER.z+rand(-SIEGE.scatter,SIEGE.scatter);
+      e.mark.position.set(e.tx,.08,e.tz);
+      sfxRange();
+    }
+  }
+  if(e.flash>0){
+    e.flash-=dt;
+    const on=e.flash>0;
+    e.parts.mats[0].emissive.setHex(on?0x992200:0x000000);
+    e.parts.mats[1].emissive.setHex(on?0x551100:0x000000);
+  }
+}
+function fireShell(e){
+  const m=new THREE.Mesh(shellGeo,matShell);
+  const p=e.g.position;
+  m.position.set(p.x,2.4,p.z);
+  fxRoot.add(m);
+  shells.push({m:m,x0:p.x,z0:p.z,x1:e.tx,z1:e.tz,t:0,
+               arc:Math.max(9,Math.hypot(e.tx-p.x,e.tz-p.z)*.42)});
+  sfxSwing();
+}
+const shellAt=new THREE.Vector3();
+function updateShells(dt){
+  for(let i=shells.length-1;i>=0;i--){
+    const s=shells[i];
+    s.t+=dt/SIEGE.flight;
+    const k=Math.min(1,s.t);
+    s.m.position.set(lerp(s.x0,s.x1,k),.4+Math.sin(k*Math.PI)*s.arc,lerp(s.z0,s.z1,k));
+    if(k<1) continue;
+    shellAt.set(s.x1,1.2,s.z1);
+    sparks(shellAt,0xff8a3c); sparks(shellAt,0xffc06a);
+    sfxShell();
+    player.shake=Math.max(player.shake,.9);
+    /* the shell is aimed at the tower, but standing in the crater still costs you */
+    if(Math.hypot(TOWER.x-s.x1,TOWER.z-s.z1)<TOWER.hx+SIEGE.splash)
+      hurtTower(SIEGE.dmg*TOWER.dmgMul);
+    const pd=Math.hypot(player.pos.x-s.x1,player.pos.z-s.z1);
+    if(pd<SIEGE.splash) hurtPlayer(26*(1-pd/SIEGE.splash)+8);
+    fxRoot.remove(s.m); shells.splice(i,1);
+  }
+}
+function clearShells(){
+  for(let i=shells.length-1;i>=0;i--) fxRoot.remove(shells[i].m);
+  shells.length=0;
 }
 
 /* the duel: stalk in, telegraph, lunge, then leave an opening. the rest state is
@@ -1506,8 +1718,9 @@ for(let i=0;i<16;i++){
 
 function spawnEnemy(type){
   const cfg=TYPES[type];
-  const boss=!!cfg.boss;
-  const r=pools[type].pop()||(boss?buildSamurai():buildRobot(type));
+  const boss=!!cfg.boss, siege=!!cfg.siege;
+  const r=pools[type].pop()||
+          (boss?buildSamurai():siege?buildSiege():buildRobot(type));
   r.mats[0].emissive.setHex(0x000000);
   r.mats[1].emissive.setHex(0x000000);
   r.legL.rotation.x=r.legR.rotation.x=0;
@@ -1518,6 +1731,12 @@ function spawnEnemy(type){
     r.group.position.set(clamp(player.pos.x-Math.sin(a)*17,-32,32),0,
                          clamp(player.pos.z-Math.cos(a)*17,-32,32));
     r.sword.rotation.set(0,0,0);
+  }else if(siege){
+    /* it digs in out past the houses, in the open, where it has line of sight on
+       the tower and you have a long walk to reach it */
+    const a=rand(0,TAU);
+    r.group.position.set(Math.cos(a)*28,0,Math.sin(a)*28);
+    r.barrel.rotation.set(0,0,0);
   }else{
     let p=SPAWNS[randi(0,SPAWNS.length-1)], tries=0;
     while(p.distanceTo(player.pos)<24&&tries++<14) p=SPAWNS[randi(0,SPAWNS.length-1)];
@@ -1525,15 +1744,19 @@ function spawnEnemy(type){
   }
   enemyRoot.add(r.group);
   const w=game.wave;
-  const hpMul=1+(w-1)*.041;                       // ~2x by wave 25, not spongy
-  const spMul=Math.min(1+(w-1)*.022,1.34);        // capped so runners stay outrunnable
+  let hpMul=1+(w-1)*.041;                         // ~2x by wave 25, not spongy
+  let spMul=Math.min(1+(w-1)*.022,1.34);          // capped so runners stay outrunnable
+  /* nightfall rides on top of the wave curve rather than replacing it */
+  if(game.night){ hpMul*=NIGHT.hpMul; spMul*=NIGHT.speedMul; }
   /* from wave 6 a minority peel off for the tower instead - heavies most of all */
-  const towerOdds=(boss||w<TOWER_WAVE)?0:TOWER_ODDS[type];
+  const towerOdds=(boss||siege||w<TOWER_WAVE)?0:TOWER_ODDS[type];
   const e={type:type,cfg:cfg,g:r.group,parts:r,hp:cfg.hp*hpMul,maxhp:cfg.hp*hpMul,
     speed:cfg.speed*spMul,goTower:Math.random()<towerOdds,ally:null,pick:rand(0,1.2),
-    cool:rand(0,.8),flash:0,walk:rand(0,6),avoid:0,avoidDir:1,
+    cool:rand(0,.8),flash:0,walk:rand(0,6),avoid:0,avoidDir:1,slow:0,trapCool:0,
     lastX:r.group.position.x,lastZ:r.group.position.z,shootCool:rand(1,3),dead:false,
-    st:"stalk",stT:rand(.3,.8),hitDone:false,lungeX:0,lungeZ:0,parryFlick:0,stick:0,stuck:0};
+    st:siege?"rest":"stalk",stT:siege?rand(.6,1.4):rand(.3,.8),
+    tx:TOWER.x,tz:TOWER.z,mark:null,
+    hitDone:false,lungeX:0,lungeZ:0,parryFlick:0,stick:0,stuck:0};
   e.g.userData.ref=e;
   enemies.push(e);
 }
@@ -1563,6 +1786,7 @@ function killEnemy(e){
       s0:m.scale.x});
   }
   sparks(new THREE.Vector3(pos.x,1.2,pos.z),0xffae55);
+  if(e.mark){ fxRoot.remove(e.mark); e.mark=null; }   // the shell warning goes with it
   enemyRoot.remove(e.g);
   pools[e.type].push(e.parts);                    // recycle the robot
   game.kills++; game.score+=e.cfg.score;
@@ -1587,13 +1811,19 @@ function dropHealth(pos){
 const CASH_DROP={grunt  :{a:2  ,b:4  ,ba:7  ,bb:11 ,big:.10},
                  runner :{a:3  ,b:5  ,ba:9  ,bb:13 ,big:.12},
                  heavy  :{a:14 ,b:20 ,ba:32 ,bb:38 ,big:.15},
-                 samurai:{a:150,b:210,ba:260,bb:340,big:.20}};
+                 samurai:{a:150,b:210,ba:260,bb:340,big:.20},
+                 siege  :{a:90 ,b:130,ba:170,bb:220,big:.18}};
 const cashAt=new THREE.Vector3();
+/* every earnings modifier multiplies here rather than anywhere else, so BLOOD MONEY,
+   nightfall, the FENCE perk and a live streak all stack instead of overwriting */
+function cashMul(){
+  return EVT.cashMul*(game.night?NIGHT.cashMul:1)*(1+.18*perk("fence"))*streakMul();
+}
 function awardCash(type,pos){
   const d=CASH_DROP[type]||CASH_DROP.grunt;
   const fat=Math.random()<d.big;
   const amt=Math.round(randi(fat?d.ba:d.a,fat?d.bb:d.b)*
-                       (1+(game.wave-1)*.05)*EVT.cashMul);   // keeps pace with hpMul
+                       (1+(game.wave-1)*.05)*cashMul());   // keeps pace with hpMul
   player.cash+=amt;
   cashAt.set(pos.x,1.7,pos.z);
   floater(cashAt,"+$"+amt,false,fat?"cash fat":"cash");
@@ -1631,16 +1861,29 @@ function fireBolt(e){
    against, and so a reset can put them back without hunting magic numbers */
 const GUN={dmg:27,head:66,rate:.098,reload:1.55,
            dmgStep:.14,rateStep:.09,loadStep:.22};
+/* one place recomputes every derived number from the tiers and perks that feed it.
+   nothing assigns player.dmgMul/fireRate/reloadTime directly, so a perk can never
+   quietly overwrite a purchased tier or the other way round */
+function applyStats(){
+  player.dmgMul    = 1+GUN.dmgStep*game.gunDmgT;
+  player.fireRate  = GUN.rate*(1-GUN.rateStep*game.gunRateT);
+  player.reloadTime= (GUN.reload-GUN.loadStep*game.gunLoadT)*Math.pow(.85,perk("reload"));
+}
 const player={pos:new THREE.Vector3(0,0,10),vy:0,onGround:true,hp:100,maxhp:100,
   yaw:Math.PI,pitch:0,bob:0,recoil:0,recoilV:0,kick:0,cash:0,dmgMul:1,
   ammo:30,mag:30,reloading:0,fireCool:0,spread:0,noHitTime:0,shake:0,
   fireRate:GUN.rate,reloadTime:GUN.reload,
-  weapon:0,swing:0,swingHit:false,inspect:0,spin:0,spinTip:0};
+  weapon:0,swing:0,swingHit:false,inspect:0,spin:0,spinTip:0,regen:false};
+/* out-of-combat patch-up. bossMul is the tunable the duel rides on: the default is
+   "regen still works, but slowly", so a long fight stays tense without being a
+   war of attrition you cannot win. set it to 0 to switch regen off in the duel */
+const REGEN={delay:4,rate:6,bossMul:.35};
 const game={state:"menu",wave:0,alive:0,kills:0,score:0,shots:0,hits:0,
   best:0,between:0,pending:0,queue:[],spawnCool:0,time:0,sunT:1,
   turretTier:0,padLock:true,shopGround:false,up:{hp:0,dmg:0,aura:0},
   /* purchased rungs. every one of these is a tier index, never a boolean */
   gunDmgT:0,gunRateT:0,gunLoadT:0,allyDmgT:0,allyHpT:0,allySlots:3,samSeen:0,
+  perks:{},streak:0,streakBest:0,night:false,placing:null,
   wShots:0,wHits:0,wHeads:0,wDmg:0,wCount:0,wStart:0};
 let sensitivity=1.0;
 
@@ -1661,7 +1904,14 @@ addEventListener("keyup",e=>{keys[e.code]=false;});
 let mouseDown=false, dragLook=false, dragX=0, dragY=0,
     pointerLockFailed=false, pointerLockWorked=false;
 addEventListener("mousedown",e=>{
-  if(e.button!==0||game.state==="shop") return;
+  if(game.state==="shop"||game.state==="perk") return;
+  /* placement mode owns the mouse: left sets the trap down, right puts it back */
+  if(game.placing){
+    if(e.button===2) cancelPlace(true);
+    else if(e.button===0) dropTrap();
+    return;
+  }
+  if(e.button!==0) return;
   mouseDown=true;
   if(document.pointerLockElement!==document.body){
     dragLook=true; dragX=e.clientX; dragY=e.clientY;
@@ -1751,7 +2001,8 @@ function meleeHit(){
     if((dx/d)*fx0+(dz/d)*fz0<lim) continue;
     if(Math.abs(e.g.position.y-player.pos.y)>2.4) continue;   // not through a floor
     meleeAt.set(e.g.position.x,e.g.position.y+1.25*e.cfg.scale,e.g.position.z);
-    if(damageEnemy(e,MELEE.dmg*player.dmgMul*EVT.playerDmg,false,meleeAt,true)) killed=true;
+    if(damageEnemy(e,MELEE.dmg*player.dmgMul*meleeMul()*EVT.playerDmg,
+                   false,meleeAt,true)){ killed=true; bumpStreak(); }
     sparks(meleeAt,0xffe8a8);
     landed=true;
   }
@@ -1787,6 +2038,7 @@ function shoot(){
   const wallD=wHits.length?wHits[0].distance:Infinity;
 
   let end=origin.clone().addScaledVector(shotDir,wallD===Infinity?120:wallD);
+  let landed=false;                                // a miss is what ends a streak
   if(eHits.length&&eHits[0].distance<wallD){
     const hit=eHits[0];
     let node=hit.object, ref=null;
@@ -1795,10 +2047,13 @@ function shoot(){
     end=hit.point.clone();
     if(ref&&!ref.dead&&ref.cfg.immune){
       damageEnemy(ref,0,false,hit.point);            // turned aside, nothing lands
+      landed=true;                                   // on target, just not through it
     }else if(ref&&!ref.dead){
+      landed=true;
       game.hits++; game.wHits++; if(head) game.wHeads++;
       const dmg=(head?GUN.head:GUN.dmg)*player.dmgMul*EVT.playerDmg;
       const killed=damageEnemy(ref,dmg,head,hit.point);
+      if(killed) bumpStreak();
       sfxHit(head);
       hitMarker(killed);
       sparks(hit.point,head?0xffcf6b:0xff9a3c);
@@ -1808,6 +2063,7 @@ function shoot(){
     sfxImpact();
   }
   tracer(origin.clone().addScaledVector(shotDir,.7),end);
+  if(!landed) breakStreak();
   updateHUD();
 }
 const tracerPool=[];
@@ -1856,6 +2112,8 @@ const el={
   towerhp:$("#towerhp"),twfill:$("#twfill"),twlbl:$("#twlbl"),squad:$("#squad"),
   bosshp:$("#bosshp"),bsfill:$("#bsfill"),
   shopNote:$("#shopnote"),
+  streak:$("#streak"),strkMul:$("#streak .mul"),strkN:$("#strk-n"),
+  placehint:$("#placehint"),placeT:$("#placehint .p1"),placeS:$("#placehint .p2"),
   hm:$("#hitmark"),floaters:$("#floaters"),
   chU:$("#ch-up"),chD:$("#ch-dn"),chL:$("#ch-lf"),chR:$("#ch-rt")
 };
@@ -1870,6 +2128,11 @@ function updateHUD(){
   el.hp.style.transform="scaleX("+clamp(player.hp/player.maxhp,0,1)+")";
   el.hpnum.innerHTML=hp+"<small>HP</small>";
   el.hpbar.classList.toggle("low",player.hp<=player.maxhp*.35);
+  el.hpbar.classList.toggle("regen",player.regen);
+  el.streak.classList.toggle("on",game.streak>=3);
+  el.streak.classList.toggle("hot",game.streak>=STREAK.cap);
+  el.strkMul.textContent="×"+streakMul().toFixed(2);
+  el.strkN.textContent=game.streak;
   el.lowhp.classList.toggle("on",player.hp<=player.maxhp*.3&&game.state==="playing");
   el.cash.textContent=player.cash;
 
@@ -2239,15 +2502,16 @@ function updateAllies(dt){
       if(a.cool>0) a.cool-=dt;
       if(a.cool<=0&&d2<(k.melee?k.reach*k.reach:k.range*k.range)){
         a.cool=k.rate;
+        const hit=k.dmg*allyDmgMul()*perkAuraMul(p.x,p.z);   // WAR DRUM rides here
         if(k.melee){
           a.swing=.26;
           allyAt.set(e.g.position.x,e.g.position.y+1.2*e.cfg.scale,e.g.position.z);
           sparks(allyAt,k.tracer); sfxSlash();
           /* the ordinary damage path on purpose: a parry still stops the ronin, so
              the karambit stays the only thing that can finish the duel boss */
-          damageEnemy(e,k.dmg*allyDmgMul(),false,allyAt);
+          damageEnemy(e,hit,false,allyAt);
         }else{
-          autoShot(p.x,p.y+1.15,p.z,e,k.dmg*allyDmgMul(),k.tracer);
+          autoShot(p.x,p.y+1.15,p.z,e,hit,k.tracer);
           a.parts.armR.rotation.x=-1.3;
         }
         if(e.dead) a.target=null;
@@ -2265,6 +2529,174 @@ function updateAllies(dt){
   }
 }
 const allyAt=new THREE.Vector3();
+
+/* --- environmental traps: bought from the armoury, then placed by hand --- */
+const TRAP={zone:20,reach:15,
+  spike:{r:1.6,dmg:34,tick:.4,slow:.5,hp:520},
+  wire :{r:5.5,pings:8,cool:5}};
+const MAX_TRAPS=8;
+const traps=[], trapPools={spike:[],wire:[]};
+const trapRoot=new THREE.Group(); scene.add(trapRoot);
+const matSpike=new THREE.MeshLambertMaterial({color:0x6e6455});
+const matSpikeTip=new THREE.MeshLambertMaterial({color:0xc8ccd2});
+const matWire=new THREE.MeshLambertMaterial({color:0x7a6a4a});
+const matWireLit=new THREE.MeshBasicMaterial({color:0xffb23f});
+function buildTrap(kind){
+  const g=new THREE.Group();
+  if(kind==="spike"){
+    const bed=new THREE.Mesh(bgeo(2.6,.16,2.6),matSpike);
+    bed.position.y=.08; g.add(bed);
+    for(let i=0;i<9;i++){
+      const s=new THREE.Mesh(new THREE.ConeGeometry(.11,.52,4),matSpikeTip);
+      s.position.set(-.8+(i%3)*.8,.42,-.8+Math.floor(i/3)*.8);
+      g.add(s);
+    }
+  }else{
+    for(let i=0;i<2;i++){
+      const post=new THREE.Mesh(bgeo(.16,1.1,.16),matWire);
+      post.position.set(i?2.4:-2.4,.55,0); g.add(post);
+    }
+    const line=new THREE.Mesh(bgeo(4.8,.05,.05),matWireLit);
+    line.position.y=.85; g.add(line);
+    g.userData.line=line;
+  }
+  const blob=new THREE.Mesh(blobGeo,blobMat);
+  blob.rotation.x=-Math.PI/2; blob.position.y=.03; blob.scale.setScalar(kind==="spike"?1.5:2.4);
+  g.add(blob);
+  return g;
+}
+/* the ghost that follows your aim while you are deciding where to put one */
+const ghostMat=new THREE.MeshBasicMaterial({color:0x9fe07a,transparent:true,
+  opacity:.4,depthWrite:false,side:THREE.DoubleSide});
+const ghost=new THREE.Mesh(new THREE.RingGeometry(1.1,1.7,20),ghostMat);
+ghost.rotation.x=-Math.PI/2; ghost.visible=false; scene.add(ghost);
+const zoneMat=new THREE.MeshBasicMaterial({color:0xffb23f,transparent:true,
+  opacity:.16,depthWrite:false,side:THREE.DoubleSide});
+const zoneRing=new THREE.Mesh(new THREE.RingGeometry(TRAP.zone-.35,TRAP.zone,64),zoneMat);
+zoneRing.rotation.x=-Math.PI/2; zoneRing.position.set(TOWER.x,.05,TOWER.z);
+zoneRing.visible=false; scene.add(zoneRing);
+
+const placeAt=new THREE.Vector3(), trapAt=new THREE.Vector3();
+function placePoint(){
+  camera.getWorldDirection(shotDir);
+  const oy=player.pos.y+EYE;
+  /* drop the aim ray onto the ground; looking level or up, fall back to arm's length */
+  let t=shotDir.y<-.06?-oy/shotDir.y:TRAP.reach;
+  t=clamp(t,1.6,TRAP.reach);
+  placeAt.set(player.pos.x+shotDir.x*t,0,player.pos.z+shotDir.z*t);
+  return placeAt;
+}
+function placeBlocked(p){
+  if(traps.length>=MAX_TRAPS) return "NO ROOM · EIGHT IS THE LIMIT";
+  if(Math.hypot(p.x-TOWER.x,p.z-TOWER.z)>TRAP.zone) return "TOO FAR FROM THE TOWER";
+  if(insideSolid(p.x,.35,p.z)) return "SOMETHING IS ALREADY THERE";
+  for(let i=0;i<traps.length;i++){
+    const t=traps[i];
+    if(Math.hypot(p.x-t.x,p.z-t.z)<2.6) return "TOO CLOSE TO ANOTHER TRAP";
+  }
+  return null;
+}
+function beginPlace(kind,cost){
+  game.placing={kind:kind,cost:cost};
+  mouseDown=false;                    // the buy click must not carry into a swing
+  ghost.scale.setScalar(kind==="spike"?1:1.9);
+  ghost.visible=true; zoneRing.visible=true;
+  if(game.state==="shop") closeShop();
+}
+function cancelPlace(refund){
+  if(!game.placing) return;
+  if(refund){ player.cash+=game.placing.cost; updateHUD(); }
+  game.placing=null;
+  ghost.visible=false; zoneRing.visible=false;
+  el.placehint.classList.remove("on");
+}
+function dropTrap(){
+  if(!game.placing) return false;
+  const p=placePoint();
+  if(placeBlocked(p)){ sfxDry(); return false; }
+  const kind=game.placing.kind;
+  const g=trapPools[kind].pop()||buildTrap(kind);
+  g.position.set(p.x,groundAt(p.x,p.z,0),p.z);
+  g.rotation.y=player.yaw+Math.PI/2;
+  trapRoot.add(g);
+  traps.push(kind==="spike"
+    ? {kind:kind,g:g,x:p.x,z:p.z,hp:TRAP.spike.hp}
+    : {kind:kind,g:g,x:p.x,z:p.z,pings:TRAP.wire.pings,cool:0,lit:0});
+  sfxBuy();
+  game.placing=null;
+  ghost.visible=false; zoneRing.visible=false;
+  el.placehint.classList.remove("on");
+  return true;
+}
+function clearTraps(){
+  for(let i=traps.length-1;i>=0;i--){
+    trapRoot.remove(traps[i].g); trapPools[traps[i].kind].push(traps[i].g);
+  }
+  traps.length=0;
+  cancelPlace(false);
+}
+function updatePlacing(dt){
+  if(!game.placing) return;
+  const p=placePoint();
+  const why=placeBlocked(p);
+  ghost.position.set(p.x,groundAt(p.x,p.z,0)+.06,p.z);
+  ghostMat.color.setHex(why?0xe8683f:0x9fe07a);
+  zoneMat.opacity=.12+Math.sin(game.time*3)*.05;
+  el.placeT.textContent=why||(game.placing.kind==="spike"?"SPIKE BED":"TRIPWIRE");
+  el.placeS.textContent="CLICK TO SET IT DOWN  ·  ESC TO PUT IT BACK";
+  el.placehint.classList.toggle("bad",!!why);
+  el.placehint.classList.add("on");
+}
+function updateTraps(dt){
+  for(let i=traps.length-1;i>=0;i--){
+    const t=traps[i];
+    if(t.kind==="spike"){
+      for(let j=0;j<enemies.length;j++){
+        const e=enemies[j];
+        if(e.dead||e.cfg.boss||e.cfg.siege) continue;
+        const dx=e.g.position.x-t.x, dz=e.g.position.z-t.z;
+        if(dx*dx+dz*dz>TRAP.spike.r*TRAP.spike.r) continue;
+        e.slow=.15;                                  // re-armed every frame it stands on
+        e.trapCool-=dt;
+        if(e.trapCool>0) continue;
+        e.trapCool=TRAP.spike.tick;
+        const bite=TRAP.spike.dmg;
+        t.hp-=bite;
+        trapAt.set(e.g.position.x,.6,e.g.position.z);
+        damageEnemy(e,bite,false,trapAt);
+        sparks(trapAt,0xd8c9a8);
+      }
+      if(t.hp<=0){ retireTrap(i,"SPIKES SPENT"); continue; }
+    }else{
+      if(t.lit>0) t.lit-=dt;
+      t.g.userData.line.scale.y=t.lit>0?3.4:1;   // the wire flares as it trips
+      t.cool-=dt;
+      if(t.cool<=0){
+        for(let j=0;j<enemies.length;j++){
+          const e=enemies[j];
+          if(e.dead) continue;
+          const dx=e.g.position.x-t.x, dz=e.g.position.z-t.z;
+          if(dx*dx+dz*dz>TRAP.wire.r*TRAP.wire.r) continue;
+          t.cool=TRAP.wire.cool; t.pings--; t.lit=.6;
+          trapAt.set(t.x,1.5,t.z);
+          floater(trapAt,"CONTACT",false,"parry");
+          sparks(trapAt,0xffb23f);
+          sfxPing();
+          player.shake=Math.max(player.shake,.1);
+          break;
+        }
+      }
+      if(t.pings<=0){ retireTrap(i,"WIRE CUT"); continue; }
+    }
+  }
+}
+function retireTrap(i,why){
+  const t=traps[i];
+  trapAt.set(t.x,1.2,t.z);
+  floater(trapAt,why,false);
+  trapRoot.remove(t.g); trapPools[t.kind].push(t.g);
+  traps.splice(i,1);
+}
 
 /* --- the tower takes hits of its own --- */
 const towerHit=new THREE.Vector3();
@@ -2304,6 +2736,23 @@ const SHOP=[
    own:()=>(TURRET.dmg+game.turretTier*TURRET.tierDmg)+" DMG PER BOLT",
    can:()=>game.turretTier<3,
    buy:()=>{ game.turretTier++; }},
+  /* the cheapest thing on the rack. you place these by hand, and they wear out */
+  {id:"spike",nm:"SPIKE BED",
+   ds:"A bed of stakes you set down yourself. Anything crossing it bleeds and slows "+
+      "to a crawl. Wears out after enough of them.",
+   cost:()=>70,
+   own:()=>traps.filter(t=>t.kind==="spike").length+" SET · "+traps.length+
+           " / "+MAX_TRAPS+" TOTAL",
+   can:()=>traps.length<MAX_TRAPS,
+   buy:()=>{ beginPlace("spike",70); }},
+  {id:"wire",nm:"TRIPWIRE",
+   ds:"A line and two posts. Pings when something crosses it, which is the whole "+
+      "point on a flank you cannot see. Eight trips and it is cut.",
+   cost:()=>45,
+   own:()=>traps.filter(t=>t.kind==="wire").length+" STRUNG · "+traps.length+
+           " / "+MAX_TRAPS+" TOTAL",
+   can:()=>traps.length<MAX_TRAPS,
+   buy:()=>{ beginPlace("wire",45); }},
   {id:"ally",nm:"HIRED GUN",
    ds:"A friendly machine that trails you and opens up on anything that gets close.",
    cost:()=>150+90*allies.length,
@@ -2355,24 +2804,21 @@ const SHOP=[
    tiers:3, at:()=>game.gunDmgT,
    own:()=>"DAMAGE ×"+player.dmgMul.toFixed(2),
    can:()=>game.gunDmgT<3,
-   buy:()=>{ game.gunDmgT++; game.up.dmg=game.gunDmgT;
-             player.dmgMul=1+GUN.dmgStep*game.gunDmgT; }},
+   buy:()=>{ game.gunDmgT++; game.up.dmg=game.gunDmgT; applyStats(); }},
   {id:"trigger",nm:"TUNED TRIGGER",
    ds:"Lighter sear and a shorter reset. The rifle cycles faster with every tier.",
    cost:()=>[150,240,350][game.gunRateT],
    tiers:3, at:()=>game.gunRateT,
    own:()=>Math.round(1/player.fireRate)+" RPS",
    can:()=>game.gunRateT<3,
-   buy:()=>{ game.gunRateT++;
-             player.fireRate=GUN.rate*(1-GUN.rateStep*game.gunRateT); }},
+   buy:()=>{ game.gunRateT++; applyStats(); }},
   {id:"springs",nm:"RECOIL SPRINGS",
    ds:"A faster magazine change, so a dry rifle costs you less of the wave.",
    cost:()=>[120,190,280][game.gunLoadT],
    tiers:3, at:()=>game.gunLoadT,
    own:()=>player.reloadTime.toFixed(2)+"S RELOAD",
    can:()=>game.gunLoadT<3,
-   buy:()=>{ game.gunLoadT++;
-             player.reloadTime=GUN.reload-GUN.loadStep*game.gunLoadT; }},
+   buy:()=>{ game.gunLoadT++; applyStats(); }},
   {id:"beacon",nm:"TOWER BEACON",
    ds:"Lights the spire. It mends you while you hold the ground around the tower.",
    cost:()=>200,
@@ -2459,11 +2905,7 @@ function closeShop(){
   if(game.state!=="shop") return;
   $("#s-shop").classList.add("hidden");
   game.state="playing";
-  setMusic(game.between>0?.1:.16,game.between>0?.15:Math.min(.3+game.wave*.09,1));
-  if(pointerLockFailed) return;
-  /* browsers throttle re-locking right after an exit, so give it a second go */
-  const relock=()=>{ if(game.state==="playing") lockPointer(); };
-  relock(); setTimeout(relock,1400);
+  resumePlay();
 }
 
 /* =====================================================================
@@ -2471,7 +2913,8 @@ function closeShop(){
    ===================================================================== */
 /* every multiplier the rest of the game reads sits on EVT, so an event is
    just a pair of functions that set and unset a few numbers */
-const EVT={id:null,def:null,cashMul:1,dmgMul:1,speedMul:1,playerDmg:1};
+const EVT={id:null,def:null,cashMul:1,dmgMul:1,speedMul:1,playerDmg:1,
+           spawnMul:1,capBonus:0};
 const EVENT_CHANCE=.2;
 
 /* rain: one Points cloud parked on the player, wrapped in place. one draw call */
@@ -2499,10 +2942,11 @@ function updateRain(dt){
 const EVENTS=[
   {id:"rain",tone:"bad",min:1,weight:26,
    name:"RAIN",sub:"THE FIELDS TURN TO MUD",end:"THE RAIN LIFTS",
-   on(){ EVT.speedMul=.82; scene.fog.far=250;
+   on(){ EVT.speedMul=.82; applyFog();
          rainPts.visible=true; $("#rainveil").classList.add("on"); },
-   off(){ EVT.speedMul=1; scene.fog.far=560;
-          rainPts.visible=false; $("#rainveil").classList.remove("on"); }},
+   off(){ EVT.speedMul=1;
+          rainPts.visible=false; $("#rainveil").classList.remove("on");
+          applyFog(); }},   /* hands the view distance back to night, not to daylight */
 
   {id:"moon",tone:"bad",min:2,weight:24,
    name:"RED MOON",sub:"THEY HIT HARDER TONIGHT",end:"THE RED MOON SETS",
@@ -2518,6 +2962,25 @@ const EVENTS=[
    name:"OVERCLOCK",sub:"YOUR EDGE RUNS HOT",end:"THE BARREL COOLS",
    on(){ EVT.playerDmg=1.4; },
    off(){ EVT.playerDmg=1; }},
+
+  /* no boss, no mechanic: the whole wave arrives at once and you hold or you don't */
+  {id:"horde",tone:"bad",min:4,weight:20,
+   name:"HORDE",sub:"ALL OF THEM, ALL AT ONCE",end:"THE HORDE BREAKS",
+   on(){
+     const extra=Math.round(10+game.wave*1.1);
+     for(let i=0;i<extra;i++) game.queue.push(Math.random()<.45?"runner":"grunt");
+     game.wCount+=extra;                  // the fast-clear clock grows with the wave
+     EVT.spawnMul=.3; EVT.capBonus=11;
+   },
+   off(){ EVT.spawnMul=1; EVT.capBonus=0; }},
+
+  /* a gun emplacement out past the houses. it never takes a step and it is not
+     immune to anything - the pressure is the clock, not the target */
+  {id:"siege",tone:"boss",min:6,weight:18,
+   name:"SIEGE ENGINE",sub:"IT IS RANGING ON THE TOWER",end:"THE ENGINE IS SCRAP",
+   on(){ spawnEnemy("siege"); setMusic(.18,.9); },
+   off(){ clearShells();
+          setMusic(.16,Math.min(.3+game.wave*.09,1)); }},
 
   /* the duel replaces the wave outright - see startWave() */
   {id:"samurai",tone:"boss",min:5,weight:20,solo:true,
@@ -2572,16 +3035,151 @@ function startEvent(ev){
 function endEvent(quiet){
   const ev=EVT.def;
   if(!ev) return;
-  ev.off();
+  /* cleared before off() runs, so anything that re-derives shared state (the fog
+     distance, say) sees a world with no event in it rather than the one ending */
   EVT.id=null; EVT.def=null;
+  ev.off();
   if(!quiet){ eventBanner(ev.end,"",ev.tone); sfxEventEnd(); }
+}
+
+/* =====================================================================
+   10D. NIGHTFALL
+   ===================================================================== */
+/* deliberately NOT an entry in the event table. day and night are a background
+   layer underneath whatever event is running, so a red moon can rise on a night
+   wave and rain can fall on either - one more axis of variety instead of one
+   more thing competing for the single event slot */
+const NIGHT={from:3,hpMul:1.09,speedMul:1.06,cashMul:1.25,spawnMul:.8,cards:4};
+function nightChance(n){ return n<NIGHT.from?0:clamp(.14+(n-NIGHT.from)*.025,0,.55); }
+function applyFog(){ scene.fog.far=EVT.id==="rain"?250:(game.night?380:560); }
+function setNight(on,quiet){
+  if(game.night===on){ applyFog(); return false; }
+  game.night=on;
+  $("#nightveil").classList.toggle("on",on);
+  applyFog();
+  if(!quiet) nightBanner=on?1:2;
+  return true;
+}
+/* the wave banner and any event banner both want the middle of the screen the
+   instant a wave starts, so nightfall queues up behind them instead of stomping
+   whichever fired last */
+let nightBanner=0, nightBannerT=0;
+function rollNight(n){ setNight(Math.random()<nightChance(n)); }
+function tickNightBanner(dt){
+  if(!nightBanner) return;
+  nightBannerT+=dt;
+  if(nightBannerT<(EVT.def?3.1:.6)) return;
+  eventBanner(nightBanner===1?"NIGHT FALLS":"DAYBREAK",
+              nightBanner===1?"THEY MOVE BOLDER IN THE DARK":"THE LIGHT COMES BACK",
+              nightBanner===1?"night":"dawn");
+  sfxEvent(false);
+  nightBanner=0; nightBannerT=0;
+}
+
+/* =====================================================================
+   10E. KILL STREAK
+   ===================================================================== */
+/* kills without taking a hit or missing a shot. the cap is what keeps this from
+   running away with the economy - see the note on STREAK.cap */
+/* only kills the player lands count. counting a hired gun's kills instead would
+   pay a player who hires six allies and never fires a permanent capped multiplier -
+   no shots means no missed shots. an ally kill neither builds the streak nor breaks
+   it; it is simply paid out at whatever multiplier the player has earned */
+const STREAK={step:.035,cap:20};
+function streakMul(){ return 1+Math.min(game.streak,STREAK.cap)*STREAK.step; }
+function bumpStreak(){
+  game.streak++;
+  if(game.streak>game.streakBest) game.streakBest=game.streak;
+  if(game.streak===STREAK.cap) sfxCell();
+  updateHUD();
+}
+function breakStreak(){ if(!game.streak) return; game.streak=0; updateHUD(); }
+
+/* =====================================================================
+   10F. PERKS
+   ===================================================================== */
+const PERK_EVERY=3;
+const PERKS=[
+  {id:"reload",nm:"FAST HANDS",max:3,
+   ds:"Magazine changes come 15% quicker, on top of anything the armoury sells you."},
+  {id:"aura",nm:"WAR DRUM",max:3,
+   ds:"Hires fighting within earshot of you swing and shoot 30% harder."},
+  {id:"mason",nm:"MASON",max:3,
+   ds:"The watchtower knits itself back together while it is still standing."},
+  {id:"legs",nm:"LIGHT BOOTS",max:3,
+   ds:"You cover ground 7% faster, rifle or blade, walking or sprinting."},
+  {id:"fence",nm:"FENCE",max:3,
+   ds:"You know someone. Every kill is worth 18% more salvage."},
+  {id:"whet",nm:"WHETSTONE",max:3,
+   ds:"The karambit bites 30% deeper. Nothing else on the rack touches it."},
+  {id:"kit",nm:"FIELD KIT",max:3,
+   ds:"You start patching up sooner out of the fight, and mend faster once you do."},
+  {id:"grip",nm:"STEADY GRIP",max:3,
+   ds:"The rifle settles between shots, so holding the trigger stays honest."}
+];
+function perk(id){ return game.perks[id]||0; }
+function perkAuraMul(x,z){         // WAR DRUM only reaches hires fighting beside you
+  const n=perk("aura");
+  if(!n) return 1;
+  const dx=x-player.pos.x, dz=z-player.pos.z;
+  return dx*dx+dz*dz<169?1+.3*n:1;
+}
+function meleeMul(){ return 1+.3*perk("whet"); }
+const perkCards=[];
+function offerPerks(){
+  const pool=PERKS.filter(p=>perk(p.id)<p.max);
+  if(!pool.length) return false;
+  /* a night draw is a wider draw - that is the "better perk odds" side of the
+     risk/reward trade for fighting in the dark */
+  const want=Math.min(game.night?NIGHT.cards:3,pool.length);
+  const grid=$("#perkgrid");
+  grid.innerHTML=""; perkCards.length=0;
+  for(let i=0;i<want;i++){
+    const p=pool.splice(randi(0,pool.length-1),1)[0];
+    const b=document.createElement("button");
+    b.className="perk";
+    b.innerHTML='<div class="nm"></div><div class="ds"></div><div class="have"></div>';
+    b.querySelector(".nm").textContent=p.nm;
+    b.querySelector(".ds").textContent=p.ds;
+    b.querySelector(".have").textContent=perk(p.id)
+      ? "HELD "+perk(p.id)+" / "+p.max : "NOT YET TAKEN";
+    b.addEventListener("click",()=>takePerk(p));
+    grid.appendChild(b); perkCards.push(p);
+  }
+  $("#perknote").textContent=game.night
+    ? "FIELD PROMOTION · A WIDER DRAW IN THE DARK" : "FIELD PROMOTION";
+  game.state="perk";
+  mouseDown=false; dragLook=false;
+  document.exitPointerLock();
+  $("#s-perk").classList.remove("hidden");
+  setMusic(.08,.12);
+  return true;
+}
+function takePerk(p){
+  if(game.state!=="perk") return;
+  game.perks[p.id]=perk(p.id)+1;
+  applyStats();                        // reload and anything else derived re-derives
+  $("#s-perk").classList.add("hidden");
+  game.state="playing";
+  sfxBuy();
+  banner(p.nm,"TAKEN FOR THE REST OF THE RUN");
+  updateHUD();
+  resumePlay();
+}
+/* the shop and the perk draft both give up pointer lock; getting it back is the
+   same dance in both places, and browsers throttle an immediate re-lock */
+function resumePlay(){
+  setMusic(game.between>0?.1:.16,game.between>0?.15:Math.min(.3+game.wave*.09,1));
+  if(pointerLockFailed) return;
+  const relock=()=>{ if(game.state==="playing") lockPointer(); };
+  relock(); setTimeout(relock,1400);
 }
 
 /* =====================================================================
    11. WAVES
    ===================================================================== */
 const MAX_WAVE=25;
-function aliveCap(n){ return Math.min(13+Math.floor(n/1.9),26); }
+function aliveCap(n){ return Math.min(13+Math.floor(n/1.9),26)+EVT.capBonus; }
 function waveComposition(n){
   const q=[];
   const grunts=Math.min(4+Math.round(n*1.15),34);
@@ -2611,6 +3209,9 @@ function startWave(n){
   sfxWave();
   setMusic(.16,Math.min(.3+n*.05,1));
   el.breather.classList.remove("on");
+  /* nightfall is settled before the event rolls, because whether it is dark decides
+     how wide the next perk draw is and how hard everything in the queue hits */
+  rollNight(n);
   /* one roll per wave. a solo event stands in for the wave rather than joining it */
   const ev=rollEvent(n);
   if(ev&&ev.solo){ game.queue.length=0; game.wCount=26; }
@@ -2643,6 +3244,9 @@ function betweenWaves(){
   setMusic(.1,.15);
   banner("HELD","REGROUP");
   waveBonus();
+  /* the draft rides on the breather that already exists rather than inventing a
+     second pause: hold the line, get paid, pick something, carry on */
+  if(game.wave%PERK_EVERY===0&&game.wave<MAX_WAVE) offerPerks();
 }
 
 /* =====================================================================
@@ -2669,12 +3273,17 @@ function resetGame(){
     allyPools[allies[i].kind].push(allies[i].parts);
   }
   allies.length=0;
+  clearTraps(); clearShells();
   marks.forEach(m=>{m.style.display="none";});
   endEvent(true);
+  setNight(false,true);
+  nightBanner=0; nightBannerT=0;
   player.weapon=0; player.swing=0; player.inspect=0; player.spin=0; player.spinTip=0;
+  player.regen=false;
   gun.visible=true; knife.visible=false;
   knifeArm.rotation.set(0,0,0); knifeSpin.rotation.set(0,0,0);
   $("#s-shop").classList.add("hidden");
+  $("#s-perk").classList.add("hidden");
   el.padhint.classList.remove("on");
   el.bonus.classList.remove("show");
   TOWER.hp=TOWER.max; TOWER.down=false; TOWER.hurt=0;
@@ -2682,16 +3291,17 @@ function resetGame(){
   player.pos.set(0,0,10); player.vy=0; player.maxhp=100; player.hp=100; player.ammo=30;
   player.reloading=0; player.yaw=Math.PI; player.pitch=0; player.spread=0;
   player.recoil=0; player.recoilV=0; player.noHitTime=0;
-  player.cash=0; player.dmgMul=1;
-  player.fireRate=GUN.rate; player.reloadTime=GUN.reload;
+  player.cash=0;
   game.wave=0; game.kills=0; game.score=0; game.shots=0; game.hits=0;
   game.queue=[]; game.between=0; game.time=0; game.sunT=1;
   game.turretTier=0; game.padLock=true; game.shopGround=false;
   game.gunDmgT=0; game.gunRateT=0; game.gunLoadT=0;
   game.allyDmgT=0; game.allyHpT=0; game.allySlots=3; game.samSeen=0;
+  game.perks={}; game.streak=0; game.streakBest=0;
   game.wShots=0; game.wHits=0; game.wHeads=0; game.wDmg=0;
   game.wCount=0; game.wStart=0;
   game.up.hp=0; game.up.dmg=0; game.up.aura=0;
+  applyStats();                        // tiers and perks are gone, so re-derive from stock
   updateHUD();
 }
 function beginRun(){
@@ -2766,8 +3376,11 @@ function resumeFromPause(){
     setMusic(game.between>0?.1:.16,game.between>0?.15:Math.min(.3+game.wave*.09,1));
   }
 }
+/* right-click cancels a placement, so the browser menu has to stay out of the way */
+addEventListener("contextmenu",e=>{ if(game.placing) e.preventDefault(); });
 addEventListener("keydown",e=>{
   if(e.code!=="Escape") return;
+  if(game.placing){ cancelPlace(true); return; }
   if(game.state==="playing"){
     game.state="paused"; dragLook=false;
     $("#s-pause").classList.remove("hidden"); setMusic(.05,.1);
@@ -2791,6 +3404,8 @@ const cMoonTop=new THREE.Color(0x2a0709), cMoonBot=new THREE.Color(0x8e1410);
 const cMoonFog=new THREE.Color(0x5e1512), cMoonSun=new THREE.Color(0xff5240);
 const cRainTop=new THREE.Color(0x39434f), cRainBot=new THREE.Color(0x6b7580);
 const cRainFog=new THREE.Color(0x5d6771);
+const cNightTop=new THREE.Color(0x070b1c), cNightBot=new THREE.Color(0x1b2440);
+const cNightFog=new THREE.Color(0x141c33), cNightSun=new THREE.Color(0x7f95d8);
 function updateSun(){
   const t=game.sunT;                       // 1 = afternoon, 0 = dusk
   const el0=lerp(.05,.42,t);
@@ -2811,6 +3426,15 @@ function updateSun(){
   SKY_TOP.copy(cDuskTop).lerp(cDayTop,t);
   SKY_BOT.copy(cDuskBot).lerp(cDayBot,t);
   scene.fog.color.copy(cFogDusk).lerp(cFogDay,t);
+  /* nightfall goes on first, underneath any event, so a red moon still reads as a
+     red moon over a dark field instead of the two cancelling each other out */
+  if(game.night){
+    SKY_TOP.lerp(cNightTop,.84); SKY_BOT.lerp(cNightBot,.74);
+    scene.fog.color.lerp(cNightFog,.72);
+    sun.color.lerp(cNightSun,.62);
+    sun.intensity*=.3; hemi.intensity*=.5; ambient.intensity*=.72;
+    sunDisc.material.opacity=.25;
+  }
   /* events repaint the sky on top of the time of day rather than replacing it */
   if(EVT.id==="moon"){
     SKY_TOP.lerp(cMoonTop,.78); SKY_BOT.lerp(cMoonBot,.7);
@@ -2824,7 +3448,7 @@ function updateSun(){
   skyMat.uniforms.top.value.copy(SKY_TOP);
   skyMat.uniforms.bot.value.copy(SKY_BOT);
   renderer.setClearColor(scene.fog.color);
-  const lampOn=1-clamp((t-.15)/.4,0,1);
+  const lampOn=game.night?1:1-clamp((t-.15)/.4,0,1);   // the village lights up at dark
   lampBulbs.forEach(l=>{
     l.light.intensity=lampOn*1.9;
     l.bulb.material.color.setHSL(.1,.8,lerp(.28,.72,lampOn));
@@ -2853,7 +3477,8 @@ function update(dt){
 
   /* ---- move ---- */
   const sprint=keys.ShiftLeft||keys.ShiftRight;
-  const speed=(sprint?7.6:5.1)*(player.weapon?MELEE.speedMul:1)*EVT.speedMul;
+  const speed=(sprint?7.6:5.1)*(player.weapon?MELEE.speedMul:1)*EVT.speedMul*
+              (1+.07*perk("legs"));
   fwd.set(-Math.sin(player.yaw),0,-Math.cos(player.yaw));
   right.set(Math.cos(player.yaw),0,-Math.sin(player.yaw));
   move.set(0,0,0);
@@ -2901,8 +3526,10 @@ function update(dt){
 
   /* ---- weapon ---- */
   player.fireCool=Math.max(-dt,player.fireCool-dt);   // one frame of carry, no more
-  player.spread=Math.max(0,player.spread-dt*.09);
-  if(mouseDown&&game.state==="playing"){ if(player.weapon) swingKnife(); else shoot(); }
+  player.spread=Math.max(0,player.spread-dt*(.09+.045*perk("grip")));
+  if(mouseDown&&game.state==="playing"&&!game.placing){
+    if(player.weapon) swingKnife(); else shoot();
+  }
   if(player.reloading>0){
     player.reloading-=dt;
     el.rbar.classList.add("on");
@@ -2980,7 +3607,9 @@ function update(dt){
       game.spawnCool-=dt;
       if(game.queue.length&&game.spawnCool<=0&&enemies.length<aliveCap(game.wave)){
         spawnEnemy(game.queue.shift());
-        game.spawnCool=Math.max(.11,rand(.28,.75)-game.wave*.019);
+        /* a HORDE pours in, and the dark hurries everything along */
+        game.spawnCool=Math.max(.06,(rand(.28,.75)-game.wave*.019)*
+                                    EVT.spawnMul*(game.night?NIGHT.spawnMul:1));
         updateHUD();
       }
       if(!game.queue.length&&!enemies.length){
@@ -2994,7 +3623,9 @@ function update(dt){
   for(let i=enemies.length-1;i>=0;i--){
     const e=enemies[i];
     const p=e.g.position;
+    if(e.slow>0) e.slow-=dt;                           // spike beds bite and hold
     if(e.cfg.boss){ updateSamurai(e,dt); continue; }   // the duel runs its own AI
+    if(e.cfg.siege){ updateSiege(e,dt); continue; }    // and the engine never moves
 
     /* who this one is walking at: the tower it was assigned at spawn, a hired gun
        that wandered into its path, or the player by default */
@@ -3025,7 +3656,7 @@ function update(dt){
         mx=(dx/dist)*.5+perpX; mz=(dz/dist)*.5+perpZ;
         const l=Math.hypot(mx,mz); mx/=l; mz/=l;
       }
-      const step=e.speed*dt;
+      const step=e.speed*dt*(e.slow>0?TRAP.spike.slow:1);
       p.x+=mx*step; p.z+=mz*step;
       resolve(p,.55,0);
       const movedSq=(p.x-e.lastX)*(p.x-e.lastX)+(p.z-e.lastZ)*(p.z-e.lastZ);
@@ -3090,7 +3721,16 @@ function update(dt){
   /* ---- the base: turrets, hired guns, and the two ways into the shop ---- */
   if(turrets.length) updateTurrets(dt);
   if(allies.length) updateAllies(dt);
+  if(traps.length) updateTraps(dt);
+  if(shells.length) updateShells(dt);
+  updatePlacing(dt);
   if(TOWER.hurt>0) TOWER.hurt-=dt;
+  /* MASON: the tower mends itself while it is still standing. a flattened tower
+     still needs paying for at the salvage ring */
+  if(perk("mason")&&!TOWER.down&&TOWER.hp<TOWER.max){
+    TOWER.hp=Math.min(TOWER.max,TOWER.hp+9*perk("mason")*dt);
+    updateHUD();
+  }
 
   /* the trade ring up on the deck is the real shop */
   const onDeck=player.pos.y>TOWER.deck-.4;
@@ -3119,6 +3759,7 @@ function update(dt){
   }else el.padhint.classList.remove("on");
 
   updateRain(dt);
+  tickNightBanner(dt);
 
   /* ---- fx ---- */
   for(let i=fx.length-1;i>=0;i--){
@@ -3150,12 +3791,15 @@ function update(dt){
     if(f.life<=0){ f.el.remove(); floats.splice(i,1); }
   }
 
-  /* ---- regen + health ---- */
+  /* ---- out-of-combat patch-up ---- */
   player.noHitTime+=dt;
-  const floor=player.maxhp*.55;
-  if(player.noHitTime>9&&player.hp<floor&&game.state==="playing"){
-    player.hp=Math.min(floor,player.hp+7*dt); updateHUD();
-  }
+  const kit=perk("kit");
+  const wait=Math.max(1.6,REGEN.delay-.8*kit);
+  const rate=(REGEN.rate+2.5*kit)*(bossEnemy()?REGEN.bossMul:1);
+  const wasRegen=player.regen;
+  player.regen=game.state==="playing"&&player.noHitTime>wait&&player.hp<player.maxhp;
+  if(player.regen) player.hp=Math.min(player.maxhp,player.hp+rate*dt);
+  if(player.regen||wasRegen) updateHUD();
   if(game.up.aura&&player.hp<player.maxhp&&
      Math.hypot(player.pos.x,player.pos.z)<AURA.r){
     player.hp=Math.min(player.maxhp,player.hp+AURA.rate*dt); updateHUD();
@@ -3170,6 +3814,7 @@ function update(dt){
 function hurtPlayer(dmg){
   if(game.state!=="playing") return;
   player.hp-=dmg; player.noHitTime=0; game.wDmg++;
+  player.regen=false; breakStreak();
   player.shake=Math.max(player.shake,.5);
   sfxHurt();
   el.dmg.style.opacity=".85";
