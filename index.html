@@ -113,8 +113,25 @@
     14%{opacity:1;transform:translate(-50%,-50%) scale(1)}
     72%{opacity:1}100%{opacity:0}}
 
+  /* --- random event call-out, same show/fade language as the wave banner --- */
+  #event{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    text-align:center;opacity:0}
+  #event .e1{font-family:var(--display);font-size:44px;font-weight:700;
+    letter-spacing:.08em;text-shadow:0 3px 18px rgba(0,0,0,.9)}
+  #event .e2{font-size:11px;letter-spacing:.42em;color:var(--dust);margin-top:5px}
+  #event.show{animation:bnr 3s ease-out}
+  #event.bad .e1{color:var(--rust)}
+  #event.good .e1{color:#9fe07a}
+  #event.boss .e1{color:#ff2a12;font-size:52px}
+
+  /* rain veil - one flat overlay, no per-drop DOM */
+  #rainveil{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:9;
+    transition:opacity .8s;background:linear-gradient(180deg,
+      rgba(24,38,54,.34),rgba(16,26,38,.12))}
+  #rainveil.on{opacity:1}
+
   /* --- wave bonus roll-up, same show/fade pattern as the wave banner --- */
-  #bonus{position:absolute;left:50%;top:57%;transform:translate(-50%,-50%);
+  #bonus{position:absolute;left:50%;top:64%;transform:translate(-50%,-50%);
     text-align:center;opacity:0}
   #bonus .bt{font-family:var(--display);font-size:40px;font-weight:700;
     letter-spacing:.05em;color:var(--amber);text-shadow:0 3px 16px rgba(0,0,0,.85)}
@@ -133,6 +150,15 @@
     background:linear-gradient(180deg,#dcc78d,#9a7b3e);transition:transform .2s}
   #towerhp.low #twfill{background:linear-gradient(180deg,#e8683f,#a82a17)}
   #towerhp.down .lbl{color:var(--rust)}
+
+  #bosshp{margin-top:7px;padding:5px 11px 7px;background:rgba(20,6,6,.86);
+    border:1px solid rgba(255,42,18,.55);opacity:0;transition:opacity .35s}
+  #bosshp.on{opacity:1}
+  #bosshp .lbl{font-size:9px;letter-spacing:.42em;color:#ff8a72;margin-bottom:5px}
+  #bsbar{height:9px;width:196px;margin:0 auto;background:rgba(0,0,0,.75);
+    border:1px solid #ff2a12;position:relative;overflow:hidden}
+  #bsfill{position:absolute;inset:0;transform-origin:left;
+    background:linear-gradient(180deg,#ff6a4d,#a8140a);transition:transform .15s}
 
   /* --- hired guns, centre left so it never reads as the player's own bar --- */
   #squad{position:absolute;left:24px;top:50%;transform:translateY(-50%);
@@ -195,6 +221,9 @@
   .float{position:absolute;font-family:var(--display);font-size:21px;font-weight:700;
     text-shadow:0 2px 6px rgba(0,0,0,.9);will-change:transform,opacity}
   .float.head{color:var(--amber);font-size:27px}
+  .float.cash{color:#ffd25e;font-size:19px}
+  .float.cash.fat{color:#fff0b0;font-size:29px}
+  .float.parry{color:#dfe9f2;font-size:17px;letter-spacing:.2em}
 
   /* mop-up marker: the last few of the wave get one so you can find them */
   .mark{position:absolute;width:15px;height:15px;margin:-7px 0 0 -7px;display:none;
@@ -268,7 +297,7 @@
 </head>
 <body>
 
-<div id="buildtag">BUILD 09 &middot; TOWER DEFENCE + HIRED GUNS</div>
+<div id="buildtag">BUILD 10 &middot; KARAMBIT + EVENTS + SAMURAI</div>
 
 <div id="floaters"></div>
 
@@ -300,6 +329,10 @@
       <div class="lbl" id="twlbl">WATCHTOWER</div>
       <div id="twbar"><div id="twfill"></div></div>
     </div>
+    <div id="bosshp">
+      <div class="lbl">SAMURAI</div>
+      <div id="bsbar"><div id="bsfill"></div></div>
+    </div>
   </div>
 
   <div id="squad"></div>
@@ -323,7 +356,7 @@
   </div>
 
   <div id="ammo">
-    <div class="lbl">AMMO</div>
+    <div class="lbl" id="ammolbl">AMMO</div>
     <svg id="bullet" viewBox="0 0 76 156" width="80" height="164">
       <defs>
         <clipPath id="bclip">
@@ -345,6 +378,7 @@
   </div>
 
   <div id="banner"><div class="b1"></div><div class="b2"></div></div>
+  <div id="event"><div class="e1"></div><div class="e2"></div></div>
   <div id="bonus"><div class="bt"></div><div class="bl"></div></div>
   <div id="breather"></div>
   <div id="padhint"></div>
@@ -352,6 +386,7 @@
 
 <div id="dmg"></div>
 <div id="lowhp"></div>
+<div id="rainveil"></div>
 
 <div class="screen" id="s-start">
   <div class="eyebrow">SUNDOWN &middot; OUTER FARMLANDS</div>
@@ -366,6 +401,8 @@
     <b>SPACE</b><span>jump</span>
     <b>M</b><span>mute sound</span>
     <b>ESC</b><span>pause</span>
+    <b>WHEEL</b><span>swap rifle / karambit</span>
+    <b>F</b><span>inspect the karambit</span>
     <b>LADDER</b><span>climb the watchtower to trade</span>
   </div>
   <button class="btn" id="btn-start">DEPLOY</button>
@@ -540,10 +577,63 @@ function sfxPickup(){
   tone("triangle",520,t,.22,.01,.14);
   tone("triangle",780,t+.09,.22,.01,.18);
 }
-function sfxCoin(){
+function sfxCoin(fat){
   if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
   tone("square",1040,t,.15,.006,.08);
   tone("square",1560,t+.055,.13,.006,.14);
+  if(fat){ tone("square",2080,t+.11,.12,.006,.2); tone("triangle",780,t+.02,.14,.01,.26); }
+}
+/* --- melee --- */
+function sfxSwap(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  sfxClick(0,1400); tone("square",300,t+.04,.12,.004,.09,AUD.sfx,620);
+}
+function sfxSwing(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  const n=noiseSrc(),f=AUD.ctx.createBiquadFilter(),g=AUD.ctx.createGain();
+  f.type="bandpass"; f.frequency.setValueAtTime(700,t);
+  f.frequency.exponentialRampToValueAtTime(3600,t+.16); f.Q.value=1.4;
+  env(g,t,.26,.008,.16); n.connect(f); f.connect(g); g.connect(AUD.sfx);
+  n.start(t); n.stop(t+.24);
+}
+function sfxSlash(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  tone("sawtooth",240,t,.3,.004,.16,AUD.sfx,70);
+  const n=noiseSrc(),f=AUD.ctx.createBiquadFilter(),g=AUD.ctx.createGain();
+  f.type="highpass"; f.frequency.value=2200;
+  env(g,t,.22,.003,.13); n.connect(f); f.connect(g); g.connect(AUD.sfx);
+  n.start(t); n.stop(t+.2);
+}
+function sfxSpin(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  tone("triangle",900,t,.1,.01,.2,AUD.sfx,1500);
+  sfxClick(.42,2200);
+}
+/* --- parry: steel turning a bullet away --- */
+let parrySfxAt=0;
+function sfxParry(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  if(t-parrySfxAt<.06) return; parrySfxAt=t;
+  tone("square",2600,t,.16,.002,.09,AUD.sfx,1500);
+  tone("sine",4200,t+.01,.1,.002,.14);
+}
+/* --- events --- */
+function sfxEvent(boss){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  if(boss){
+    tone("sawtooth",110,t,.36,.03,1.5,AUD.sfx,55);
+    tone("square",165,t+.25,.2,.02,.9);
+    tone("triangle",82,t+.6,.3,.05,1.6);
+  }else{
+    tone("triangle",294,t,.26,.02,.5);
+    tone("triangle",392,t+.16,.26,.02,.6);
+    tone("triangle",466,t+.32,.24,.02,.9);
+  }
+}
+function sfxEventEnd(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  tone("triangle",392,t,.2,.02,.4);
+  tone("triangle",294,t+.16,.2,.02,.7);
 }
 function sfxBuy(){
   if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
@@ -1127,6 +1217,38 @@ gun.add(flash);
 const flashLight=new THREE.PointLight(0xffc478,0,9); flashLight.position.set(0,0,-1);
 gun.add(flashLight);
 
+/* ---- the karambit: curved claw blade, finger ring, no ammo ---- */
+const knife=new THREE.Group();
+camera.add(knife);
+knife.position.set(.34,-.3,-.46);
+knife.visible=false;
+const knifeArm=new THREE.Group();          // swing/inspect pivot, keeps rest pose separate
+knife.add(knifeArm);
+(function buildKnife(){
+  const steel=new THREE.MeshLambertMaterial({color:0xb9c4cc});
+  const edge =new THREE.MeshLambertMaterial({color:0xf4f8fb});
+  const grip =new THREE.MeshLambertMaterial({color:0x24272d});
+  const bolt =new THREE.MeshLambertMaterial({color:0x8d949b});
+  const add=(w,h,d,mat,x,y,z,rx)=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+    m.position.set(x,y,z); if(rx) m.rotation.x=rx;
+    knifeArm.add(m); return m;
+  };
+  add(.055,.075,.3,grip,0,-.03,.1);                     // handle, held blade-forward
+  add(.06,.085,.05,bolt,0,-.025,-.04);                  // bolster
+  /* the claw: overlapping segments walked along a curve so it reads as one blade */
+  let by=0, bz=-.07, ang=-.08;
+  for(let i=0;i<7;i++){
+    const len=.088, half=i>3;
+    ang+=.2;                                            // hooks up and over
+    bz-=Math.cos(ang)*len*.86; by+=Math.sin(ang)*len*.86;
+    add(half?.02:.026,half?.055:.075,len,half?edge:steel,0,by,bz,ang);
+  }
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(.062,.017,7,16),grip);
+  ring.position.set(0,-.055,.27); ring.rotation.y=Math.PI/2;
+  knifeArm.add(ring);
+})();
+
 /* =====================================================================
    7. ENEMIES
    ===================================================================== */
@@ -1141,7 +1263,10 @@ const TYPES={
   runner:{hp:42 ,speed:5.4,dmg:7 ,reach:1.9,scale:.88,body:0x8d4038,trim:0x5c2a26,
           visor:0xffe14d,score:1},
   heavy :{hp:190,speed:1.7,dmg:16,reach:2.4,scale:1.35,body:0x53603f,trim:0x39422c,
-          visor:0xff3b2f,score:3,ranged:true}
+          visor:0xff3b2f,score:3,ranged:true},
+  /* the duel boss: turns bullets aside, only a blade gets through */
+  samurai:{hp:560,speed:3.6,dmg:27,reach:3.0,scale:1.5,body:0x2a2e39,trim:0x8e1d1d,
+          visor:0xffd24a,score:15,boss:true,immune:true}
 };
 
 /* shared geometry cache - stops re-allocating the same boxes every spawn */
@@ -1161,7 +1286,7 @@ function sparkMat(c){
   return sparkMats[c];
 }
 const fragMats={};
-const pools={grunt:[],runner:[],heavy:[]};
+const pools={grunt:[],runner:[],heavy:[],samurai:[]};
 
 function buildRobot(t){
   const cfg=TYPES[t];
@@ -1193,8 +1318,159 @@ function buildRobot(t){
   return {group:g,legL:legL,legR:legR,armL:armL,armR:armR,mats:[bodyMat,trimMat]};
 }
 
+/* the samurai: same parts contract as buildRobot so the shared enemy code works,
+   plus a sword group the duel AI drives */
+function buildSamurai(){
+  const cfg=TYPES.samurai;
+  const g=new THREE.Group();
+  const plate=new THREE.MeshLambertMaterial({color:cfg.body});
+  const lac  =new THREE.MeshLambertMaterial({color:cfg.trim});
+  const gold =new THREE.MeshBasicMaterial({color:cfg.visor});
+  const steel=new THREE.MeshLambertMaterial({color:0xd2dae0});
+  const add=(w,h,d,mat,x,y,z,part,par)=>{
+    const m=new THREE.Mesh(bgeo(w,h,d),mat);
+    m.position.set(x,y,z);
+    m.userData.part=part||"body"; (par||g).add(m); return m;
+  };
+  const legL=add(.26,.82,.26,lac,-.21,.41,0);
+  const legR=add(.26,.82,.26,lac, .21,.41,0);
+  add(.32,.16,.38,plate,-.21,.06,.05);                    // sabaton
+  add(.32,.16,.38,plate, .21,.06,.05);
+  add(.62,.34,.44,lac,0,1.0,0);                           // kusazuri skirt
+  add(.78,.66,.5,plate,0,1.5,0);                          // do (chest)
+  add(.5,.1,.3,gold,0,1.46,-.26);                         // chest crest
+  add(.44,.2,.5,plate,-.53,1.72,0,"body");                // sode (pauldrons)
+  add(.44,.2,.5,plate, .53,1.72,0,"body");
+  const armL=add(.2,.66,.2,lac,-.5,1.4,0);
+  const armR=add(.2,.66,.2,lac, .5,1.4,0);
+  add(.46,.4,.44,plate,0,2.06,0,"head");                  // kabuto
+  add(.5,.12,.48,lac,0,2.26,0,"head");                    // helmet brim
+  add(.34,.16,.08,cfg.visor?lac:lac,0,1.96,-.24,"head");  // menpo mask
+  add(.3,.08,.06,gold,0,2.04,-.25,"head");                // eye slit
+  for(let i=0;i<2;i++){                                   // maedate horns
+    const h=new THREE.Mesh(new THREE.ConeGeometry(.05,.36,5),gold);
+    h.position.set(i?.15:-.15,2.42,-.05);
+    h.rotation.z=i?-.5:.5; h.userData.part="head"; g.add(h);
+  }
+  /* the katana rides in its own group so the AI can swing it */
+  const sword=new THREE.Group();
+  sword.position.set(.56,1.42,0); g.add(sword);
+  const blade=new THREE.Mesh(bgeo(.07,.07,1.9),steel);
+  blade.position.set(0,.22,-.85); blade.rotation.x=.12; sword.add(blade);
+  const guard=new THREE.Mesh(bgeo(.2,.06,.2),gold);
+  guard.position.set(0,.1,.06); sword.add(guard);
+  const hilt=new THREE.Mesh(bgeo(.06,.06,.34),lac);
+  hilt.position.set(0,.06,.24); sword.add(hilt);
+  const blob=new THREE.Mesh(blobGeo,blobMat);
+  blob.rotation.x=-Math.PI/2; blob.position.y=.04; blob.scale.setScalar(1.5);
+  blob.userData.part="blob"; g.add(blob);
+  g.scale.setScalar(cfg.scale);
+  return {group:g,legL:legL,legR:legR,armL:armL,armR:armR,sword:sword,
+          mats:[plate,lac]};
+}
+
+/* the duel: stalk in, telegraph, lunge, then leave an opening. the rest state is
+   the window the player is meant to punish - he is never a stand-and-parry dummy */
+const SAM={windup:.55,strike:.28,rest:.8,lunge:2.4,radius:.62};
+function updateSamurai(e,dt){
+  const p=e.g.position;
+  const dx=player.pos.x-p.x, dz=player.pos.z-p.z;
+  const d=Math.hypot(dx,dz)||1e-4;
+  e.g.rotation.y=Math.atan2(dx,dz);
+  e.stT-=dt;
+
+  if(e.st==="stalk"){
+    const step=e.speed*dt;
+    let mx,mz;
+    if(e.avoid>0){                    // committed sidestep, same as the robots use.
+      e.avoid-=dt;                    // it has to hold a side or the drift cancels out
+      mx=dx/d*.4-(dz/d)*e.avoidDir; mz=dz/d*.4+(dx/d)*e.avoidDir;
+    }else{
+      const weave=Math.sin(game.time*1.6)*.45;          // never a straight line in
+      mx=dx/d-(dz/d)*weave; mz=dz/d+(dx/d)*weave;
+    }
+    const l=Math.hypot(mx,mz)||1;
+    p.x+=mx/l*step; p.z+=mz/l*step;
+    resolve(p,SAM.radius,0);
+    const movedSq=(p.x-e.lastX)*(p.x-e.lastX)+(p.z-e.lastZ)*(p.z-e.lastZ);
+    if(e.stick>0) e.stick-=dt;
+    if(movedSq<step*step*.2){
+      e.stuck+=dt;
+      if(e.avoid<=0){
+        e.avoid=1.4;
+        /* commit to a side rather than re-rolling every frame, which just cancels
+           the drift out - but if that side is clearly not working, try the other */
+        if(e.stuck>2.2){ e.avoidDir=-e.avoidDir; e.stuck=0; }
+        else if(e.stick<=0) e.avoidDir=Math.random()<.5?-1:1;
+        e.stick=2.6;
+      }
+    }else e.stuck=Math.max(0,e.stuck-dt*.6);
+    e.lastX=p.x; e.lastZ=p.z;
+    e.walk+=dt*e.speed*2.2;
+    const sw=Math.sin(e.walk)*.55;
+    e.parts.legL.rotation.x=sw; e.parts.legR.rotation.x=-sw;
+    e.parts.sword.rotation.x=lerp(e.parts.sword.rotation.x,-.35,dt*6);
+    if(d<e.cfg.reach+1.6&&e.stT<=0){ e.st="wind"; e.stT=SAM.windup; }
+  }else if(e.st==="wind"){
+    e.parts.legL.rotation.x=lerp(e.parts.legL.rotation.x,0,dt*8);
+    e.parts.legR.rotation.x=lerp(e.parts.legR.rotation.x,0,dt*8);
+    e.parts.armR.rotation.x=lerp(e.parts.armR.rotation.x,-2.3,dt*9);
+    e.parts.sword.rotation.x=lerp(e.parts.sword.rotation.x,-2.5,dt*9);
+    e.parts.mats[1].emissive.setHex(0x661010);          // he lights up before he swings
+    if(e.stT<=0){
+      e.st="strike"; e.stT=SAM.strike; e.hitDone=false;
+      e.lungeX=dx/d; e.lungeZ=dz/d;
+      sfxSwing();
+    }
+  }else if(e.st==="strike"){
+    const step=e.speed*SAM.lunge*dt;
+    p.x+=e.lungeX*step; p.z+=e.lungeZ*step;
+    resolve(p,SAM.radius,0);
+    e.parts.armR.rotation.x=lerp(e.parts.armR.rotation.x,1.1,dt*26);
+    e.parts.sword.rotation.x=lerp(e.parts.sword.rotation.x,1.2,dt*26);
+    if(!e.hitDone&&e.stT<=SAM.strike*.45){
+      e.hitDone=true;
+      if(d<e.cfg.reach+1.2&&Math.abs(player.pos.y-p.y)<2.4){
+        hurtPlayer(e.cfg.dmg*EVT.dmgMul); sfxSlash();
+      }
+    }
+    if(e.stT<=0){ e.st="rest"; e.stT=SAM.rest; e.parts.mats[1].emissive.setHex(0x000000); }
+  }else{                                                 // rest: the opening
+    e.parts.armR.rotation.x=lerp(e.parts.armR.rotation.x,0,dt*5);
+    e.parts.sword.rotation.x=lerp(e.parts.sword.rotation.x,-.2,dt*5);
+    if(e.stT<=0){ e.st="stalk"; e.stT=rand(.15,.5); }
+  }
+
+  if(e.parryFlick>0){                                    // blade twitch on a deflection
+    e.parryFlick-=dt;
+    e.parts.sword.rotation.z=Math.sin(e.parryFlick*60)*.5;
+  }else e.parts.sword.rotation.z=lerp(e.parts.sword.rotation.z,0,dt*8);
+
+  if(e.flash>0){
+    e.flash-=dt;
+    const on=e.flash>0;
+    e.parts.mats[0].emissive.setHex(on?0x992200:0x000000);
+  }
+}
+
+function bossEnemy(){
+  for(let i=0;i<enemies.length;i++) if(enemies[i].cfg.boss&&!enemies[i].dead) return enemies[i];
+  return null;
+}
+
+/* bullets turned aside by the samurai's blade */
+const parryAt=new THREE.Vector3();
+function parry(e,point){
+  const p=point||e.g.position;
+  parryAt.set(p.x,p.y,p.z);
+  sparks(parryAt,0xdfe9f2);
+  floater(parryAt,"PARRIED",false,"parry");
+  sfxParry();
+  if(e.parts&&e.parts.sword) e.parryFlick=.18;
+}
+
 const TOWER_WAVE=6;
-const TOWER_ODDS={grunt:.14,runner:.07,heavy:.5};
+const TOWER_ODDS={grunt:.16,runner:.09,heavy:.55};   /* nudged up: more tower pressure */
 
 const SPAWNS=[];
 for(let i=0;i<16;i++){
@@ -1204,29 +1480,42 @@ for(let i=0;i<16;i++){
 
 function spawnEnemy(type){
   const cfg=TYPES[type];
-  const r=pools[type].pop()||buildRobot(type);
+  const boss=!!cfg.boss;
+  const r=pools[type].pop()||(boss?buildSamurai():buildRobot(type));
   r.mats[0].emissive.setHex(0x000000);
   r.mats[1].emissive.setHex(0x000000);
   r.legL.rotation.x=r.legR.rotation.x=0;
   r.armL.rotation.x=r.armR.rotation.x=0;
-  let p=SPAWNS[randi(0,SPAWNS.length-1)], tries=0;
-  while(p.distanceTo(player.pos)<24&&tries++<14) p=SPAWNS[randi(0,SPAWNS.length-1)];
-  r.group.position.set(p.x+rand(-2,2),0,p.z+rand(-2,2));
+  if(boss){
+    /* he walks in from the treeline the player is facing, not a random rim slot */
+    const a=player.yaw+Math.PI+rand(-.5,.5);
+    r.group.position.set(clamp(player.pos.x-Math.sin(a)*17,-32,32),0,
+                         clamp(player.pos.z-Math.cos(a)*17,-32,32));
+    r.sword.rotation.set(0,0,0);
+  }else{
+    let p=SPAWNS[randi(0,SPAWNS.length-1)], tries=0;
+    while(p.distanceTo(player.pos)<24&&tries++<14) p=SPAWNS[randi(0,SPAWNS.length-1)];
+    r.group.position.set(p.x+rand(-2,2),0,p.z+rand(-2,2));
+  }
   enemyRoot.add(r.group);
   const w=game.wave;
   const hpMul=1+(w-1)*.041;                       // ~2x by wave 25, not spongy
   const spMul=Math.min(1+(w-1)*.022,1.34);        // capped so runners stay outrunnable
   /* from wave 6 a minority peel off for the tower instead - heavies most of all */
-  const towerOdds=w<TOWER_WAVE?0:TOWER_ODDS[type];
+  const towerOdds=(boss||w<TOWER_WAVE)?0:TOWER_ODDS[type];
   const e={type:type,cfg:cfg,g:r.group,parts:r,hp:cfg.hp*hpMul,maxhp:cfg.hp*hpMul,
     speed:cfg.speed*spMul,goTower:Math.random()<towerOdds,ally:null,pick:rand(0,1.2),
     cool:rand(0,.8),flash:0,walk:rand(0,6),avoid:0,avoidDir:1,
-    lastX:r.group.position.x,lastZ:r.group.position.z,shootCool:rand(1,3),dead:false};
+    lastX:r.group.position.x,lastZ:r.group.position.z,shootCool:rand(1,3),dead:false,
+    st:"stalk",stT:rand(.3,.8),hitDone:false,lungeX:0,lungeZ:0,parryFlick:0,stick:0,stuck:0};
   e.g.userData.ref=e;
   enemies.push(e);
 }
 
-function damageEnemy(e,dmg,head,point){
+/* melee is the 5th argument. anything with cfg.immune only yields to a blade,
+   so every existing 4-argument caller (rifle, turret, ally) bounces off */
+function damageEnemy(e,dmg,head,point,melee){
+  if(e.cfg.immune&&!melee){ parry(e,point); return false; }
   e.hp-=dmg; e.flash=.12;
   floater(point,Math.round(dmg),head);
   if(e.hp<=0) killEnemy(e); 
@@ -1253,7 +1542,7 @@ function killEnemy(e){
   game.kills++; game.score+=e.cfg.score;
   sfxDeath();
   if(Math.random()<.19) dropHealth(pos);
-  dropCash(pos,e.type);
+  awardCash(e.type,pos);
   dropCell(pos);
   updateHUD();
 }
@@ -1265,22 +1554,25 @@ function dropHealth(pos){
   g.position.set(pos.x,.8,pos.z);
   pickRoot.add(g); pickups.push({g:g,life:22,kind:"hp"});
 }
-/* cash drops: chance and payout both scale with what you put down */
-const CASH_DROP={grunt :{chance:.7,a:4 ,b:8 },
-                 runner:{chance:.7,a:6 ,b:10},
-                 heavy :{chance:1 ,a:18,b:28}};
-const coinMat=new THREE.MeshLambertMaterial({color:0xffc23c,emissive:0x4d3106});
-const coinGeo=new THREE.CylinderGeometry(.3,.3,.09,12);
-function dropCash(pos,type){
-  const d=CASH_DROP[type];
-  if(Math.random()>=d.chance) return;
-  const amt=Math.round(randi(d.a,d.b)*(1+(game.wave-1)*.05));   // keeps pace with hpMul
-  const g=new THREE.Group();
-  const c=new THREE.Mesh(coinGeo,coinMat);
-  c.rotation.x=Math.PI/2;                                       // stand it up like a token
-  g.add(c);
-  g.position.set(pos.x+rand(-.35,.35),.8,pos.z+rand(-.35,.35));
-  pickRoot.add(g); pickups.push({g:g,life:26,kind:"cash",amt:amt});
+/* cash is banked the moment something dies - nothing to chase, nothing to despawn.
+   small most of the time with the odd fat purse; the means match the old drop rates,
+   so total income per wave is unchanged. counts for kills by turrets and allies too,
+   because every death goes through killEnemy() */
+const CASH_DROP={grunt  :{a:2  ,b:4  ,ba:7  ,bb:11 ,big:.10},
+                 runner :{a:3  ,b:5  ,ba:9  ,bb:13 ,big:.12},
+                 heavy  :{a:14 ,b:20 ,ba:32 ,bb:38 ,big:.15},
+                 samurai:{a:150,b:210,ba:260,bb:340,big:.20}};
+const cashAt=new THREE.Vector3();
+function awardCash(type,pos){
+  const d=CASH_DROP[type]||CASH_DROP.grunt;
+  const fat=Math.random()<d.big;
+  const amt=Math.round(randi(fat?d.ba:d.a,fat?d.bb:d.b)*
+                       (1+(game.wave-1)*.05)*EVT.cashMul);   // keeps pace with hpMul
+  player.cash+=amt;
+  cashAt.set(pos.x,1.7,pos.z);
+  floater(cashAt,"+$"+amt,false,fat?"cash fat":"cash");
+  sfxCoin(fat);
+  return amt;
 }
 /* repair cells for the hired guns - rarer than health, and only worth dropping
    once you actually have somebody out there to patch up */
@@ -1311,7 +1603,8 @@ function fireBolt(e){
    ===================================================================== */
 const player={pos:new THREE.Vector3(0,0,10),vy:0,onGround:true,hp:100,maxhp:100,
   yaw:Math.PI,pitch:0,bob:0,recoil:0,recoilV:0,kick:0,cash:0,dmgMul:1,
-  ammo:30,mag:30,reloading:0,fireCool:0,spread:0,noHitTime:0,shake:0};
+  ammo:30,mag:30,reloading:0,fireCool:0,spread:0,noHitTime:0,shake:0,
+  weapon:0,swing:0,swingHit:false,inspect:0};
 const game={state:"menu",wave:0,alive:0,kills:0,score:0,shots:0,hits:0,
   best:0,between:0,pending:0,queue:[],spawnCool:0,time:0,sunT:1,
   turretTier:0,padLock:true,shopGround:false,up:{hp:0,dmg:0,aura:0},
@@ -1323,8 +1616,14 @@ addEventListener("keydown",e=>{
   keys[e.code]=true;
   if(e.code==="KeyR") startReload();
   if(e.code==="KeyM") toggleMute();
+  if(e.code==="KeyF") inspectKnife();
   if(e.code==="Space") e.preventDefault();
 });
+/* wheel cycles the two weapons - no keypress to remember */
+addEventListener("wheel",()=>{
+  if(game.state!=="playing") return;
+  setWeapon(player.weapon?0:1);
+},{passive:true});
 addEventListener("keyup",e=>{keys[e.code]=false;});
 let mouseDown=false, dragLook=false, dragX=0, dragY=0,
     pointerLockFailed=false, pointerLockWorked=false;
@@ -1373,10 +1672,55 @@ function toggleMute(){
 const ray=new THREE.Raycaster();
 const shotDir=new THREE.Vector3();
 function startReload(){
-  if(game.state!=="playing") return;
+  if(game.state!=="playing"||player.weapon!==0) return;
   if(player.reloading>0||player.ammo>=player.mag) return;
   player.reloading=1.55; sfxReload();
 }
+
+/* ---- melee: the karambit ---- */
+const MELEE={dmg:58,rate:.46,range:3.0,arc:.95,speedMul:1.2};
+function setWeapon(w){
+  if(player.weapon===w||game.state!=="playing") return;
+  player.weapon=w;
+  gun.visible=(w===0); knife.visible=(w===1);
+  player.swing=0; player.inspect=0; player.reloading=0;
+  knifeArm.rotation.set(0,0,0);
+  el.rbar.classList.remove("on");
+  sfxSwap(); updateHUD();
+}
+function inspectKnife(){
+  if(game.state!=="playing"||player.weapon!==1) return;
+  if(player.swing>0||player.inspect>0) return;
+  player.inspect=.95; sfxSpin();
+}
+function swingKnife(){
+  if(player.swing>0||player.inspect>0) return;
+  player.swing=MELEE.rate; player.swingHit=false;
+  player.kick=1; sfxSwing();
+}
+/* arc sweep in front of the player, not a hitscan ray */
+function meleeHit(){
+  camera.getWorldDirection(shotDir);
+  const fl=Math.hypot(shotDir.x,shotDir.z)||1;
+  const fx0=shotDir.x/fl, fz0=shotDir.z/fl;
+  const lim=Math.cos(MELEE.arc);
+  let landed=false, killed=false;
+  for(let i=enemies.length-1;i>=0;i--){
+    const e=enemies[i]; if(e.dead) continue;
+    const dx=e.g.position.x-player.pos.x, dz=e.g.position.z-player.pos.z;
+    const d=Math.hypot(dx,dz)||1e-4;
+    if(d>MELEE.range+e.cfg.scale*.5) continue;
+    if((dx/d)*fx0+(dz/d)*fz0<lim) continue;
+    if(Math.abs(e.g.position.y-player.pos.y)>2.4) continue;   // not through a floor
+    meleeAt.set(e.g.position.x,e.g.position.y+1.25*e.cfg.scale,e.g.position.z);
+    if(damageEnemy(e,MELEE.dmg*player.dmgMul*EVT.playerDmg,false,meleeAt,true)) killed=true;
+    sparks(meleeAt,0xffe8a8);
+    landed=true;
+  }
+  if(landed){ sfxSlash(); hitMarker(killed); player.shake=Math.max(player.shake,.22);
+              updateHUD(); }
+}
+const meleeAt=new THREE.Vector3();
 function shoot(){
   if(player.reloading>0||player.fireCool>0) return;
   if(player.ammo<=0){ sfxDry(); player.fireCool=.3; startReload(); return; }
@@ -1408,14 +1752,16 @@ function shoot(){
     while(node&&!ref){ if(node.userData&&node.userData.ref) ref=node.userData.ref; node=node.parent; }
     const head=hit.object.userData.part==="head";
     end=hit.point.clone();
-    if(ref&&!ref.dead){
+    if(ref&&!ref.dead&&ref.cfg.immune){
+      damageEnemy(ref,0,false,hit.point);            // turned aside, nothing lands
+    }else if(ref&&!ref.dead){
       game.hits++; game.wHits++; if(head) game.wHeads++;
-      const dmg=(head?66:27)*player.dmgMul;
+      const dmg=(head?66:27)*player.dmgMul*EVT.playerDmg;
       const killed=damageEnemy(ref,dmg,head,hit.point);
       sfxHit(head);
       hitMarker(killed);
-    }
-    sparks(hit.point,head?0xffcf6b:0xff9a3c);
+      sparks(hit.point,head?0xffcf6b:0xff9a3c);
+    }else sparks(hit.point,head?0xffcf6b:0xff9a3c);
   }else if(wHits.length){
     sparks(wHits[0].point,0xd8c9a8);
     sfxImpact();
@@ -1464,7 +1810,10 @@ const el={
   breather:$("#breather"),dmg:$("#dmg"),lowhp:$("#lowhp"),
   cash:$("#cashnum"),padhint:$("#padhint"),shopCash:$("#shopcash"),
   bonus:$("#bonus"),bonusT:$("#bonus .bt"),bonusL:$("#bonus .bl"),
+  event:$("#event"),eventT:$("#event .e1"),eventS:$("#event .e2"),
+  ammoLbl:$("#ammolbl"),
   towerhp:$("#towerhp"),twfill:$("#twfill"),twlbl:$("#twlbl"),squad:$("#squad"),
+  bosshp:$("#bosshp"),bsfill:$("#bsfill"),
   shopNote:$("#shopnote"),
   hm:$("#hitmark"),floaters:$("#floaters"),
   chU:$("#ch-up"),chD:$("#ch-dn"),chL:$("#ch-lf"),chR:$("#ch-rt")
@@ -1483,12 +1832,14 @@ function updateHUD(){
   el.lowhp.classList.toggle("on",player.hp<=player.maxhp*.3&&game.state==="playing");
   el.cash.textContent=player.cash;
 
-  const frac=clamp(player.ammo/player.mag,0,1);
-  el.ammoNum.textContent=player.ammo;
-  el.ammoMax.textContent="/"+player.mag;
+  const melee=player.weapon===1;
+  const frac=melee?1:clamp(player.ammo/player.mag,0,1);
+  el.ammoLbl.textContent=melee?"KARAMBIT":"AMMO";
+  el.ammoNum.textContent=melee?"\u221e":player.ammo;
+  el.ammoMax.textContent=melee?"":"/"+player.mag;
   el.ammoFill.setAttribute("y",(156*(1-frac)).toFixed(1));
   el.ammoFill.setAttribute("height",(156*frac).toFixed(1));
-  el.bullet.classList.toggle("low",player.ammo<=7);
+  el.bullet.classList.toggle("low",!melee&&player.ammo<=7);
 
   el.wave.textContent=game.wave;
   el.left.textContent=(enemies.length+game.queue.length)+" ENEMIES LEFT";
@@ -1500,6 +1851,10 @@ function updateHUD(){
   el.towerhp.classList.toggle("low",tf<=TOWER.repairAt);
   el.towerhp.classList.toggle("down",TOWER.down);
   el.twlbl.textContent=TOWER.down?"WATCHTOWER DOWN":"WATCHTOWER";
+
+  const boss=bossEnemy();
+  el.bosshp.classList.toggle("on",!!boss);
+  if(boss) el.bsfill.style.transform="scaleX("+clamp(boss.hp/boss.maxhp,0,1)+")";
 
   for(let i=0;i<squad.length;i++){
     const a=allies[i], row=squad[i];
@@ -1519,10 +1874,10 @@ function hitMarker(kill){
   el.hm.classList.add("show"); if(kill) el.hm.classList.add("kill");
 }
 const floats=[];
-function floater(worldPos,text,head){
-  if(floats.length>14) return;
+function floater(worldPos,text,head,cls){
+  if(floats.length>18) return;
   const d=document.createElement("div");
-  d.className="float"+(head?" head":""); d.textContent=text;
+  d.className="float"+(head?" head":"")+(cls?" "+cls:""); d.textContent=text;
   el.floaters.appendChild(d);
   floats.push({el:d,p:worldPos.clone(),life:.9,off:rand(-14,14)});
 }
@@ -1578,7 +1933,9 @@ const aimA=new THREE.Vector3(), aimB=new THREE.Vector3();
 function nearestEnemy(x,z,range){
   let best=null, bd=range*range;
   for(let i=0;i<enemies.length;i++){
-    const e=enemies[i]; if(e.dead) continue;
+    const e=enemies[i];
+    if(e.dead||e.cfg.immune) continue;      // no point shooting at a parry
+
     const dx=e.g.position.x-x, dz=e.g.position.z-z;
     const d=dx*dx+dz*dz;
     if(d<bd){ bd=d; best=e; }
@@ -1938,6 +2295,99 @@ function closeShop(){
 }
 
 /* =====================================================================
+   10C. RANDOM WAVE EVENTS
+   ===================================================================== */
+/* every multiplier the rest of the game reads sits on EVT, so an event is
+   just a pair of functions that set and unset a few numbers */
+const EVT={id:null,def:null,cashMul:1,dmgMul:1,speedMul:1,playerDmg:1};
+const EVENT_CHANCE=.2;
+
+/* rain: one Points cloud parked on the player, wrapped in place. one draw call */
+let rainPts=null;
+(function buildRain(){
+  const n=850, arr=new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    arr[i*3]=rand(-26,26); arr[i*3+1]=rand(0,24); arr[i*3+2]=rand(-26,26);
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.BufferAttribute(arr,3));
+  rainPts=new THREE.Points(g,new THREE.PointsMaterial({
+    color:0xc3d6e8,size:.14,transparent:true,opacity:.6,depthWrite:false,fog:false}));
+  rainPts.visible=false; rainPts.frustumCulled=false;
+  scene.add(rainPts);
+})();
+function updateRain(dt){
+  if(!rainPts.visible) return;
+  const a=rainPts.geometry.attributes.position.array;
+  for(let i=1;i<a.length;i+=3){ a[i]-=24*dt; if(a[i]<0) a[i]+=24; }
+  rainPts.geometry.attributes.position.needsUpdate=true;
+  rainPts.position.set(player.pos.x,0,player.pos.z);
+}
+
+const EVENTS=[
+  {id:"rain",tone:"bad",min:1,weight:26,
+   name:"RAIN",sub:"THE FIELDS TURN TO MUD",end:"THE RAIN LIFTS",
+   on(){ EVT.speedMul=.82; scene.fog.far=250;
+         rainPts.visible=true; $("#rainveil").classList.add("on"); },
+   off(){ EVT.speedMul=1; scene.fog.far=560;
+          rainPts.visible=false; $("#rainveil").classList.remove("on"); }},
+
+  {id:"moon",tone:"bad",min:2,weight:24,
+   name:"RED MOON",sub:"THEY HIT HARDER TONIGHT",end:"THE RED MOON SETS",
+   on(){ EVT.dmgMul=1.5; },
+   off(){ EVT.dmgMul=1; }},
+
+  {id:"purse",tone:"good",min:1,weight:24,
+   name:"BLOOD MONEY",sub:"SALVAGE PAYS DOUBLE",end:"THE BOUNTY ENDS",
+   on(){ EVT.cashMul=2; },
+   off(){ EVT.cashMul=1; }},
+
+  {id:"over",tone:"good",min:1,weight:22,
+   name:"OVERCLOCK",sub:"YOUR EDGE RUNS HOT",end:"THE BARREL COOLS",
+   on(){ EVT.playerDmg=1.4; },
+   off(){ EVT.playerDmg=1; }},
+
+  /* the duel replaces the wave outright - see startWave() */
+  {id:"samurai",tone:"boss",min:5,weight:20,solo:true,
+   name:"A SAMURAI APPROACHES",sub:"BLADES ONLY · BULLETS WILL NOT PASS",
+   end:"THE DUEL IS OVER",
+   on(){ setWeapon(1); spawnEnemy("samurai"); setMusic(.2,1); },
+   off(){ setMusic(.1,.15); }}
+];
+
+function eventBanner(a,b,tone){
+  el.eventT.textContent=a; el.eventS.textContent=b||"";
+  el.event.className="";
+  el.event.classList.add(tone||"bad");
+  void el.event.offsetWidth;
+  el.event.classList.add("show");
+}
+function rollEvent(n){
+  if(Math.random()>=EVENT_CHANCE) return null;
+  const pool=EVENTS.filter(e=>n>=e.min);
+  let tot=0; for(let i=0;i<pool.length;i++) tot+=pool[i].weight;
+  let r=Math.random()*tot;
+  for(let i=0;i<pool.length;i++){ r-=pool[i].weight; if(r<=0) return startEvent(pool[i]); }
+  return null;
+}
+function startEvent(ev){
+  if(EVT.def) endEvent(true);
+  EVT.id=ev.id; EVT.def=ev;
+  ev.on();
+  eventBanner(ev.name,ev.sub,ev.tone);
+  sfxEvent(ev.tone==="boss");
+  updateHUD();
+  return ev;
+}
+function endEvent(quiet){
+  const ev=EVT.def;
+  if(!ev) return;
+  ev.off();
+  EVT.id=null; EVT.def=null;
+  if(!quiet){ eventBanner(ev.end,"",ev.tone); sfxEventEnd(); }
+}
+
+/* =====================================================================
    11. WAVES
    ===================================================================== */
 const MAX_WAVE=25;
@@ -1971,6 +2421,9 @@ function startWave(n){
   sfxWave();
   setMusic(.16,Math.min(.3+n*.05,1));
   el.breather.classList.remove("on");
+  /* one roll per wave. a solo event stands in for the wave rather than joining it */
+  const ev=rollEvent(n);
+  if(ev&&ev.solo){ game.queue.length=0; game.wCount=26; }
   updateHUD();
 }
 /* the clock a fast clear has to beat. a 60 robot wave cannot be held to the same
@@ -1995,6 +2448,7 @@ function waveBonus(){
   updateHUD();
 }
 function betweenWaves(){
+  endEvent();                       // whatever was running is over with the wave
   game.between=Math.max(4.5,7-game.wave*.08);
   setMusic(.1,.15);
   banner("HELD","REGROUP");
@@ -2026,6 +2480,9 @@ function resetGame(){
   }
   allies.length=0;
   marks.forEach(m=>{m.style.display="none";});
+  endEvent(true);
+  player.weapon=0; player.swing=0; player.inspect=0;
+  gun.visible=true; knife.visible=false; knifeArm.rotation.set(0,0,0);
   $("#s-shop").classList.add("hidden");
   el.padhint.classList.remove("on");
   el.bonus.classList.remove("show");
@@ -2058,6 +2515,7 @@ function beginRun(){
 }
 function victory(){
   game.state="won";
+  endEvent(true);
   game.best=Math.max(game.best,MAX_WAVE);
   setMusic(0,0);
   if(AUD.ctx){ const t=AUD.ctx.currentTime;
@@ -2071,6 +2529,7 @@ function victory(){
 }
 function gameOver(){
   game.state="dead";
+  endEvent(true);
   game.best=Math.max(game.best,game.wave);
   setMusic(0,0); sfxOver();
   document.exitPointerLock();
@@ -2134,6 +2593,10 @@ $("#loadmsg").textContent="Village ready. Click DEPLOY. If the mouse won't lock,
 const cDayTop=new THREE.Color(0x3f7fd0), cDayBot=new THREE.Color(0xf6dcb0);
 const cDuskTop=new THREE.Color(0x1d2647), cDuskBot=new THREE.Color(0xd9713f);
 const cFogDay=new THREE.Color(0xd9c39c), cFogDusk=new THREE.Color(0x9c6444);
+const cMoonTop=new THREE.Color(0x2a0709), cMoonBot=new THREE.Color(0x8e1410);
+const cMoonFog=new THREE.Color(0x5e1512), cMoonSun=new THREE.Color(0xff5240);
+const cRainTop=new THREE.Color(0x39434f), cRainBot=new THREE.Color(0x6b7580);
+const cRainFog=new THREE.Color(0x5d6771);
 function updateSun(){
   const t=game.sunT;                       // 1 = afternoon, 0 = dusk
   const el0=lerp(.05,.42,t);
@@ -2153,9 +2616,19 @@ function updateSun(){
   sunDisc.material.opacity=1;
   SKY_TOP.copy(cDuskTop).lerp(cDayTop,t);
   SKY_BOT.copy(cDuskBot).lerp(cDayBot,t);
+  scene.fog.color.copy(cFogDusk).lerp(cFogDay,t);
+  /* events repaint the sky on top of the time of day rather than replacing it */
+  if(EVT.id==="moon"){
+    SKY_TOP.lerp(cMoonTop,.78); SKY_BOT.lerp(cMoonBot,.7);
+    scene.fog.color.lerp(cMoonFog,.72);
+    sun.color.lerp(cMoonSun,.7); sun.intensity*=.55; hemi.intensity*=.6;
+  }else if(EVT.id==="rain"){
+    SKY_TOP.lerp(cRainTop,.7); SKY_BOT.lerp(cRainBot,.65);
+    scene.fog.color.lerp(cRainFog,.75);
+    sun.intensity*=.45; hemi.intensity*=.8;
+  }
   skyMat.uniforms.top.value.copy(SKY_TOP);
   skyMat.uniforms.bot.value.copy(SKY_BOT);
-  scene.fog.color.copy(cFogDusk).lerp(cFogDay,t);
   renderer.setClearColor(scene.fog.color);
   const lampOn=1-clamp((t-.15)/.4,0,1);
   lampBulbs.forEach(l=>{
@@ -2186,7 +2659,7 @@ function update(dt){
 
   /* ---- move ---- */
   const sprint=keys.ShiftLeft||keys.ShiftRight;
-  const speed=(sprint?7.6:5.1);
+  const speed=(sprint?7.6:5.1)*(player.weapon?MELEE.speedMul:1)*EVT.speedMul;
   fwd.set(-Math.sin(player.yaw),0,-Math.cos(player.yaw));
   right.set(Math.cos(player.yaw),0,-Math.sin(player.yaw));
   move.set(0,0,0);
@@ -2235,7 +2708,7 @@ function update(dt){
   /* ---- weapon ---- */
   player.fireCool=Math.max(0,player.fireCool-dt);
   player.spread=Math.max(0,player.spread-dt*.09);
-  if(mouseDown&&game.state==="playing") shoot();
+  if(mouseDown&&game.state==="playing"){ if(player.weapon) swingKnife(); else shoot(); }
   if(player.reloading>0){
     player.reloading-=dt;
     el.rbar.classList.add("on");
@@ -2250,8 +2723,36 @@ function update(dt){
   gun.position.z=lerp(gun.position.z,-.55+player.kick*.07,dt*14);
   gun.rotation.x=lerp(gun.rotation.x,player.kick*.18-rl*.55,dt*14);
   gun.rotation.z=lerp(gun.rotation.z,rl*.35+(moving?Math.sin(player.bob)*.02:0),dt*8);
-  flash.visible=player.kick>.6;
+  flash.visible=player.kick>.6&&player.weapon===0;
   flashLight.intensity=Math.max(0,flashLight.intensity-dt*26);
+
+  /* ---- karambit: swing arc, then the inspect twirl ---- */
+  if(player.swing>0){
+    player.swing-=dt;
+    if(!player.swingHit&&player.swing<=MELEE.rate*.6){ player.swingHit=true; meleeHit(); }
+    const k=1-clamp(player.swing/MELEE.rate,0,1);         // 0 wind up -> 1 follow through
+    const arc=Math.sin(k*Math.PI);
+    knifeArm.rotation.z=-1.5*arc;
+    knifeArm.rotation.y=1.15*arc;
+    knifeArm.rotation.x=-.5*arc;
+    knife.position.z=-.46-arc*.3;
+    if(player.swing<=0) player.swing=0;
+  }else if(player.inspect>0){
+    player.inspect-=dt;
+    const k=1-clamp(player.inspect/.95,0,1);
+    knifeArm.rotation.z=k*TAU*2;                          // two clean rotations
+    knifeArm.rotation.y=Math.sin(k*Math.PI)*.6;
+    knifeArm.rotation.x=Math.sin(k*Math.PI)*-.35;
+    knife.position.z=-.46-Math.sin(k*Math.PI)*.09;
+    if(player.inspect<=0){ player.inspect=0; knifeArm.rotation.set(0,0,0); }
+  }else if(player.weapon===1){
+    knifeArm.rotation.z=lerp(knifeArm.rotation.z,0,dt*12);
+    knifeArm.rotation.y=lerp(knifeArm.rotation.y,0,dt*12);
+    knifeArm.rotation.x=lerp(knifeArm.rotation.x,0,dt*12);
+    knife.position.x=lerp(knife.position.x,.34-bobX*.35,dt*10);
+    knife.position.y=lerp(knife.position.y,-.3+bobY*.4,dt*10);
+    knife.position.z=lerp(knife.position.z,-.46,dt*12);
+  }
 
   /* ---- crosshair ---- */
   const g=6+player.spread*260+(moving?7:0);
@@ -2283,6 +2784,7 @@ function update(dt){
   for(let i=enemies.length-1;i>=0;i--){
     const e=enemies[i];
     const p=e.g.position;
+    if(e.cfg.boss){ updateSamurai(e,dt); continue; }   // the duel runs its own AI
 
     /* who this one is walking at: the tower it was assigned at spawn, a hired gun
        that wandered into its path, or the player by default */
@@ -2290,7 +2792,7 @@ function update(dt){
     e.pick-=dt;
     if(e.pick<=0){
       e.pick=1.2;
-      e.ally=(!tower&&allies.length&&Math.random()<.45)?nearestAlly(p.x,p.z,9):null;
+      e.ally=(!tower&&allies.length&&Math.random()<.5)?nearestAlly(p.x,p.z,9):null;
     }
     if(e.ally&&e.ally.down) e.ally=null;
     const ap=e.ally?e.ally.parts.group.position:null;
@@ -2324,9 +2826,10 @@ function update(dt){
     }else{
       e.cool-=dt;
       if(e.cool<=0){ e.cool=.95;
-        if(tower)        hurtTower(e.cfg.dmg*TOWER.dmgMul);
-        else if(e.ally)  hurtAlly(e.ally,e.cfg.dmg);
-        else             hurtPlayer(e.cfg.dmg);
+        const bite=e.cfg.dmg*EVT.dmgMul;              // RED MOON rides on this
+        if(tower)        hurtTower(bite*TOWER.dmgMul);
+        else if(e.ally)  hurtAlly(e.ally,bite);
+        else             hurtPlayer(bite);
         e.parts.armR.rotation.x=-1.2; }
       e.parts.armR.rotation.x=lerp(e.parts.armR.rotation.x,0,dt*6);
     }
@@ -2357,13 +2860,12 @@ function update(dt){
   /* ---- pickups ---- */
   for(let i=pickups.length-1;i>=0;i--){
     const pk=pickups[i];
-    pk.g.rotation.y+=dt*(pk.kind==="cash"?3.4:2.4);
+    pk.g.rotation.y+=dt*(pk.kind==="ally"?3.4:2.4);
     pk.g.position.y=.8+Math.sin(game.time*3+i)*.13;
     pk.life-=dt;
     const pdx=pk.g.position.x-player.pos.x, pdz=pk.g.position.z-player.pos.z;
     if(pdx*pdx+pdz*pdz<2.25&&Math.abs(pk.g.position.y-player.pos.y-.9)<1.6){
-      if(pk.kind==="cash"){ player.cash+=pk.amt; sfxCoin(); updateHUD(); pk.life=0; }
-      else if(pk.kind==="ally"){                 // leave it lying there if nobody needs it
+      if(pk.kind==="ally"){                      // leave it lying there if nobody needs it
         if(alliesNeedHelp()){ healAllies(55); sfxCell(); pk.life=0; }
       }else{
         player.hp=Math.min(player.maxhp,player.hp+28); sfxPickup();
@@ -2403,6 +2905,8 @@ function update(dt){
       : "CLIMB THE LADDER · TRADE ON THE DECK";
     el.padhint.classList.add("on");
   }else el.padhint.classList.remove("on");
+
+  updateRain(dt);
 
   /* ---- fx ---- */
   for(let i=fx.length-1;i>=0;i--){
