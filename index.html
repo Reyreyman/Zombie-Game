@@ -357,7 +357,7 @@
 </head>
 <body>
 
-<div id="buildtag">BUILD 12 &middot; PERKS + NIGHTFALL + TRAPS + SIEGE</div>
+<div id="buildtag">BUILD 13 &middot; BOSS ROTATION + FINGER SPIN + WHELP</div>
 
 <div id="floaters"></div>
 
@@ -715,6 +715,17 @@ function sfxPing(){
   if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
   tone("sine",1480,t,.3,.004,.12);
   tone("sine",1180,t+.1,.26,.004,.26);
+}
+/* the whelp's breath: filtered noise with a low body under it */
+function sfxFlame(){
+  if(!AUD.ctx) return; const t=AUD.ctx.currentTime;
+  const s=noiseSrc(); const f=AUD.ctx.createBiquadFilter();
+  f.type="bandpass"; f.frequency.setValueAtTime(1500,t);
+  f.frequency.exponentialRampToValueAtTime(520,t+.34);
+  f.Q.value=.9;
+  const g=AUD.ctx.createGain(); env(g,t,.26,.02,.36);
+  s.connect(f); f.connect(g); g.connect(AUD.sfx); s.start(t); s.stop(t+.4);
+  tone("sawtooth",180,t,.12,.02,.3,AUD.sfx,90);
 }
 /* the siege engine ranging in - a slow rising whine, the fair warning before a shell */
 function sfxRange(){
@@ -1353,9 +1364,28 @@ knifeSpin.add(knifeHand);
     bz-=Math.cos(ang)*len*.86; by+=Math.sin(ang)*len*.86;
     add(half?.02:.026,half?.055:.075,len,half?edge:steel,0,by,bz,ang);
   }
+  /* the ring lies in the screen plane so its hole points down the finger, which is
+     also the axis the spin turns about. those two have to agree or the flourish
+     looks like the blade rotating through the finger rather than around it */
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.062,.017,7,16),grip);
-  ring.position.set(RING_AT.x,RING_AT.y,RING_AT.z); ring.rotation.y=Math.PI/2;
+  ring.position.set(RING_AT.x,RING_AT.y,RING_AT.z);
   knifeHand.add(ring);
+})();
+/* The hand. It hangs off knifeArm, NOT off the spin pivot, so it holds still while
+   the blade goes round it - without something fixed at the pivot the trick reads as
+   a knife rotating on its own in mid-air, which is exactly what it looked like. */
+(function buildFist(){
+  const glove=new THREE.MeshLambertMaterial({color:0x2b2620});
+  const skin =new THREE.MeshLambertMaterial({color:0x8a6a4e});
+  const add=(w,h,d,mat,x,y,z)=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+    m.position.set(RING_AT.x+x,RING_AT.y+y,RING_AT.z+z);
+    knifeArm.add(m); return m;
+  };
+  add(.05,.05,.24,skin ,0,0,.02);            // the index finger, through the ring
+  add(.15,.14,.17,glove,.01,-.055,.22);      // the fist closed under it
+  add(.16,.15,.2 ,glove,.01,-.07,.42);       // knuckles and wrist, back toward you
+  add(.06,.07,.13,glove,-.07,-.02,.2);       // thumb laid across the top
 })();
 
 /* =====================================================================
@@ -1375,11 +1405,11 @@ const TYPES={
           visor:0xff3b2f,score:3,ranged:true},
   /* the duel boss: turns bullets aside, only a blade gets through */
   samurai:{hp:560,speed:3.6,dmg:27,reach:3.0,scale:1.5,body:0x2a2e39,trim:0x8e1d1d,
-          visor:0xffd24a,score:15,boss:true,immune:true},
+          visor:0xffd24a,score:15,boss:true,immune:true,bossId:"samurai"},
   /* the siege engine: never takes a step, shells the tower from range. it dies to
      ordinary gunfire - the whole point is that you have to leave the line to reach it */
   siege  :{hp:820,speed:0,dmg:0,reach:99,scale:1.5,body:0x4c4438,trim:0x2b2721,
-          visor:0xff7a2b,score:10,siege:true}
+          visor:0xff7a2b,score:10,siege:true,bossId:"siege"}
 };
 
 /* shared geometry cache - stops re-allocating the same boxes every spawn */
@@ -1790,6 +1820,11 @@ function killEnemy(e){
   enemyRoot.remove(e.g);
   pools[e.type].push(e.parts);                    // recycle the robot
   game.kills++; game.score+=e.cfg.score;
+  /* struck off the rotation the moment it goes down, not when it turns up - a run
+     that ends mid-duel leaves the boss available to the retry */
+  if(e.cfg.bossId&&!game.bossDown[e.cfg.bossId]){
+    game.bossDown[e.cfg.bossId]=true; game.bossCount++;
+  }
   sfxDeath();
   if(Math.random()<.19) dropHealth(pos);
   awardCash(e.type,pos);
@@ -1882,7 +1917,8 @@ const game={state:"menu",wave:0,alive:0,kills:0,score:0,shots:0,hits:0,
   best:0,between:0,pending:0,queue:[],spawnCool:0,time:0,sunT:1,
   turretTier:0,padLock:true,shopGround:false,up:{hp:0,dmg:0,aura:0},
   /* purchased rungs. every one of these is a tier index, never a boolean */
-  gunDmgT:0,gunRateT:0,gunLoadT:0,allyDmgT:0,allyHpT:0,allySlots:3,samSeen:0,
+  gunDmgT:0,gunRateT:0,gunLoadT:0,allyDmgT:0,allyHpT:0,allySlots:3,
+  bossDown:{},bossCount:0,
   perks:{},streak:0,streakBest:0,night:false,placing:null,
   wShots:0,wHits:0,wHeads:0,wDmg:0,wCount:0,wStart:0};
 let sensitivity=1.0;
@@ -2530,6 +2566,106 @@ function updateAllies(dt){
 }
 const allyAt=new THREE.Vector3();
 
+/* --- the dragon whelp: bought once, flies your shoulder for the rest of the run.
+   deliberately weaker per second than a hired gun and much better against a clump,
+   so it is a reason to let them bunch up rather than a wave-clearer on its own --- */
+const DRAGON={rate:2.6,dmg:26,splash:16,splashR:3.4,range:22,
+              height:3.3,orbit:2.6,ease:3.2,cost:420};
+let dragon=null;
+const matDragBody=new THREE.MeshLambertMaterial({color:0x5c3f74});
+const matDragWing=new THREE.MeshLambertMaterial({color:0x8a5fa8,
+  transparent:true,opacity:.88,side:THREE.DoubleSide});
+const matDragEye =new THREE.MeshBasicMaterial({color:0xffd24a});
+const matFlame   =new THREE.MeshBasicMaterial({color:0xff8a2b,transparent:true,
+  opacity:.72,depthWrite:false,blending:THREE.AdditiveBlending,fog:false});
+function buildDragon(){
+  const g=new THREE.Group();
+  const add=(w,h,d,mat,x,y,z,par)=>{
+    const m=new THREE.Mesh(bgeo(w,h,d),mat);
+    m.position.set(x,y,z); (par||g).add(m); return m;
+  };
+  add(.42,.34,.72,matDragBody,0,0,0);                 // body
+  add(.3,.26,.3,matDragBody,0,.1,-.48);               // head
+  add(.09,.08,.2,matDragBody,0,.02,-.68);             // snout
+  add(.07,.06,.05,matDragEye,-.09,.14,-.62);
+  add(.07,.06,.05,matDragEye, .09,.14,-.62);
+  for(let i=0;i<2;i++){                                // horns
+    const h=new THREE.Mesh(new THREE.ConeGeometry(.035,.18,4),matDragEye);
+    h.position.set(i?.09:-.09,.26,-.42); h.rotation.x=-.4; g.add(h);
+  }
+  add(.16,.13,.3,matDragBody,0,-.02,.46);             // tail base
+  add(.09,.08,.34,matDragBody,0,-.05,.74);
+  const wingL=new THREE.Group(); wingL.position.set(-.18,.14,-.02); g.add(wingL);
+  const wingR=new THREE.Group(); wingR.position.set( .18,.14,-.02); g.add(wingR);
+  add(.62,.03,.44,matDragWing,-.33,0,0,wingL);
+  add(.62,.03,.44,matDragWing, .33,0,0,wingR);
+  /* the flame cone rides on the snout and is simply hidden between breaths */
+  const flame=new THREE.Mesh(new THREE.ConeGeometry(.55,2.6,7,1,true),matFlame);
+  flame.rotation.x=-Math.PI/2;                        // point it down the -Z snout
+  flame.position.set(0,.02,-2.0);
+  flame.visible=false; g.add(flame);
+  const blob=new THREE.Mesh(blobGeo,blobMat);
+  blob.rotation.x=-Math.PI/2; blob.scale.setScalar(.7); g.add(blob);
+  g.scale.setScalar(.85);
+  return {group:g,wingL:wingL,wingR:wingR,flame:flame,blob:blob};
+}
+function spawnDragon(){
+  if(dragon) return;
+  const parts=buildDragon();
+  parts.group.position.set(player.pos.x,player.pos.y+DRAGON.height,player.pos.z+2);
+  scene.add(parts.group);
+  dragon={parts:parts,cool:rand(.6,1.4),flame:0,target:null};
+  banner("A WHELP TAKES WING","IT FIGHTS FOR YOU NOW");
+}
+function clearDragon(){
+  if(!dragon) return;
+  scene.remove(dragon.parts.group);
+  dragon=null;
+}
+const dragAt=new THREE.Vector3(), dragHit=new THREE.Vector3();
+function updateDragon(dt){
+  const d=dragon, p=d.parts.group.position;
+  /* a slow orbit at head height, eased rather than snapped, so it reads as flight */
+  const a=game.time*.7;
+  dragAt.set(player.pos.x+Math.cos(a)*DRAGON.orbit,
+             player.pos.y+DRAGON.height+Math.sin(game.time*2.1)*.22,
+             player.pos.z+Math.sin(a)*DRAGON.orbit);
+  p.lerp(dragAt,Math.min(1,dt*DRAGON.ease));
+  const flap=Math.sin(game.time*11);
+  d.parts.wingL.rotation.z=-.55-flap*.6;
+  d.parts.wingR.rotation.z= .55+flap*.6;
+  d.parts.blob.position.y=-(p.y-groundAt(p.x,p.z,0));   // shadow stays on the ground
+
+  if(d.flame>0){
+    d.flame-=dt;
+    d.parts.flame.visible=true;
+    d.parts.flame.scale.setScalar(.7+Math.sin(clamp(d.flame/.3,0,1)*Math.PI)*.6);
+    if(d.flame<=0) d.parts.flame.visible=false;
+  }
+  d.cool-=dt;
+  const e=(d.target&&!d.target.dead)?d.target:nearestEnemy(p.x,p.z,DRAGON.range);
+  if(!e){ d.target=null;
+    d.parts.group.rotation.y=lerp(d.parts.group.rotation.y,player.yaw,dt*3); return; }
+  d.target=e;
+  const dx=e.g.position.x-p.x, dz=e.g.position.z-p.z;
+  d.parts.group.rotation.y=Math.atan2(dx,dz);
+  d.parts.group.rotation.x=Math.atan2(e.g.position.y+1-p.y,Math.hypot(dx,dz));
+  if(d.cool>0) return;
+  d.cool=DRAGON.rate; d.flame=.3;
+  dragHit.set(e.g.position.x,e.g.position.y+1.1*e.cfg.scale,e.g.position.z);
+  sparks(dragHit,0xff8a2b); sfxFlame();
+  damageEnemy(e,DRAGON.dmg,false,dragHit);
+  /* everything else caught in the same breath takes the lesser share */
+  for(let i=enemies.length-1;i>=0;i--){
+    const o=enemies[i];
+    if(o===e||o.dead) continue;
+    const ox=o.g.position.x-dragHit.x, oz=o.g.position.z-dragHit.z;
+    if(ox*ox+oz*oz>DRAGON.splashR*DRAGON.splashR) continue;
+    dragAt.set(o.g.position.x,o.g.position.y+1.1*o.cfg.scale,o.g.position.z);
+    damageEnemy(o,DRAGON.splash,false,dragAt);
+  }
+}
+
 /* --- environmental traps: bought from the armoury, then placed by hand --- */
 const TRAP={zone:20,reach:15,
   spike:{r:1.6,dmg:34,tick:.4,slow:.5,hp:520},
@@ -2772,6 +2908,13 @@ const SHOP=[
    own:()=>ALLY_KINDS.sam.dmg+" DMG · "+ALLY_KINDS.sam.hp+" HP · MELEE",
    can:()=>allies.length<game.allySlots,
    buy:()=>{ spawnAlly("sam"); }},
+  {id:"dragon",nm:"DRAGON WHELP",
+   ds:"It hatches, it takes wing, and it stays over your shoulder for the rest of "+
+      "the run. Breathes on whatever is nearest, and on whatever is stood beside it.",
+   cost:()=>DRAGON.cost,
+   own:()=>dragon?"IN THE AIR":DRAGON.dmg+" + "+DRAGON.splash+" SPLASH",
+   can:()=>!dragon,
+   buy:()=>{ spawnDragon(); }},
   {id:"barracks",nm:"BARRACKS",
    ds:"Frees another billet on the tower so you can keep one more hire on the payroll.",
    cost:()=>240+160*(game.allySlots-3),
@@ -2916,6 +3059,7 @@ function closeShop(){
 const EVT={id:null,def:null,cashMul:1,dmgMul:1,speedMul:1,playerDmg:1,
            spawnMul:1,capBonus:0};
 const EVENT_CHANCE=.2;
+const BOSS_FROM=10;                 // no boss event rolls before this wave, ever
 
 /* rain: one Points cloud parked on the player, wrapped in place. one draw call */
 let rainPts=null;
@@ -2976,17 +3120,17 @@ const EVENTS=[
 
   /* a gun emplacement out past the houses. it never takes a step and it is not
      immune to anything - the pressure is the clock, not the target */
-  {id:"siege",tone:"boss",min:6,weight:18,
+  {id:"siege",tone:"boss",boss:true,min:BOSS_FROM,weight:18,
    name:"SIEGE ENGINE",sub:"IT IS RANGING ON THE TOWER",end:"THE ENGINE IS SCRAP",
    on(){ spawnEnemy("siege"); setMusic(.18,.9); },
    off(){ clearShells();
           setMusic(.16,Math.min(.3+game.wave*.09,1)); }},
 
   /* the duel replaces the wave outright - see startWave() */
-  {id:"samurai",tone:"boss",min:5,weight:20,solo:true,
+  {id:"samurai",tone:"boss",boss:true,min:BOSS_FROM,weight:20,solo:true,
    name:"A SAMURAI APPROACHES",sub:"BLADES ONLY · BULLETS WILL NOT PASS",
    end:"THE DUEL IS OVER",
-   on(){ game.samSeen++; setWeapon(1); spawnEnemy("samurai"); setMusic(.2,1); },
+   on(){ setWeapon(1); spawnEnemy("samurai"); setMusic(.2,1); },
    off(){ setMusic(.1,.15); }}
 ];
 
@@ -2997,27 +3141,46 @@ function eventBanner(a,b,tone){
   void el.event.offsetWidth;
   el.event.classList.add("show");
 }
-/* the duel is the one event a run is promised. from wave 10 a rising forced chance
-   rides alongside the ordinary roll and reaches certainty on the last wave, so it
-   lands somewhere in the back half without ever landing on the same wave twice */
-const SAM_FROM=10;
-function samuraiPressure(n){
-  if(game.samSeen>0||n<SAM_FROM||n>MAX_WAVE) return 0;
-  return (n-SAM_FROM+1)/(MAX_WAVE-SAM_FROM+1);
+/* --- the boss rotation ---------------------------------------------------
+   every event flagged boss:true shares one set of rules, so adding a third
+   costs one table entry and nothing else:
+     - none of them roll before BOSS_FROM
+     - never two at once
+     - each is a once-per-run encounter, struck off the moment it is put down
+     - the run is promised at least one of them somewhere in waves 10-25, and
+       whichever rolls first fulfils that promise
+     - after the first is beaten, the rest get rarer rather than impossible */
+function bossPool(n){
+  return EVENTS.filter(e=>e.boss&&n>=BOSS_FROM&&!game.bossDown[e.id]);
 }
-/* and once you have beaten him he stops being the headline: each duel survived
-   cuts his share of the ordinary roll, without ever ruling a rematch out */
+function bossPressure(n){
+  if(game.bossCount>0||n<BOSS_FROM||n>MAX_WAVE) return 0;
+  if(!bossPool(n).length) return 0;               // all of them already beaten
+  return (n-BOSS_FROM+1)/(MAX_WAVE-BOSS_FROM+1);
+}
+function eventOpen(e,n){
+  if(n<e.min) return false;
+  if(!e.boss) return true;
+  if(n<BOSS_FROM) return false;
+  if(game.bossDown[e.id]) return false;           // beaten once, gone for the run
+  if(EVT.def&&EVT.def.boss) return false;         // one boss at a time, always
+  return true;
+}
 function evWeight(e){
-  return e.id==="samurai"?e.weight*Math.pow(.35,game.samSeen):e.weight;
+  return e.boss?e.weight*Math.pow(.35,game.bossCount):e.weight;
 }
 function eventById(id){
   for(let i=0;i<EVENTS.length;i++) if(EVENTS[i].id===id) return EVENTS[i];
   return null;
 }
 function rollEvent(n){
-  if(Math.random()<samuraiPressure(n)) return startEvent(eventById("samurai"));
+  if(Math.random()<bossPressure(n)){
+    const pool=bossPool(n);
+    return startEvent(pool[randi(0,pool.length-1)]);
+  }
   if(Math.random()>=EVENT_CHANCE) return null;
-  const pool=EVENTS.filter(e=>n>=e.min);
+  const pool=EVENTS.filter(e=>eventOpen(e,n));
+  if(!pool.length) return null;
   let tot=0; for(let i=0;i<pool.length;i++) tot+=evWeight(pool[i]);
   let r=Math.random()*tot;
   for(let i=0;i<pool.length;i++){ r-=evWeight(pool[i]); if(r<=0) return startEvent(pool[i]); }
@@ -3273,7 +3436,7 @@ function resetGame(){
     allyPools[allies[i].kind].push(allies[i].parts);
   }
   allies.length=0;
-  clearTraps(); clearShells();
+  clearTraps(); clearShells(); clearDragon();
   marks.forEach(m=>{m.style.display="none";});
   endEvent(true);
   setNight(false,true);
@@ -3296,7 +3459,8 @@ function resetGame(){
   game.queue=[]; game.between=0; game.time=0; game.sunT=1;
   game.turretTier=0; game.padLock=true; game.shopGround=false;
   game.gunDmgT=0; game.gunRateT=0; game.gunLoadT=0;
-  game.allyDmgT=0; game.allyHpT=0; game.allySlots=3; game.samSeen=0;
+  game.allyDmgT=0; game.allyHpT=0; game.allySlots=3;
+  game.bossDown={}; game.bossCount=0;      // a retry may face every boss again
   game.perks={}; game.streak=0; game.streakBest=0;
   game.wShots=0; game.wHits=0; game.wHeads=0; game.wDmg=0;
   game.wCount=0; game.wStart=0;
@@ -3571,18 +3735,18 @@ function update(dt){
        spin, so it tilts the plane of the circle instead of twisting the blade */
     player.spinTip=lerp(player.spinTip,1,dt*10);
     knifeSpin.rotation.z=player.spin;
-    knifeSpin.rotation.y=-.42*player.spinTip;
-    knifeArm.rotation.set(0,0,0);
-    /* held at rest the blade sweeps off the bottom of the frame, so bring the hand
-       up and back for the flourish - the whole circle has to be on screen to read */
-    knife.position.x=lerp(knife.position.x,.28,dt*9);
-    knife.position.y=lerp(knife.position.y,-.08,dt*9);
-    knife.position.z=lerp(knife.position.z,-.86,dt*9);
+    /* the wrist turn goes on the arm, so the hand tilts with the plane of the spin
+       instead of the blade twisting away from a finger that never moved */
+    knifeArm.rotation.set(0,-.34*player.spinTip,0);
+    /* the hand comes up to where you would actually hold it to look at it, and no
+       further - it stays a hand doing a trick, not a knife floating at screen centre */
+    knife.position.x=lerp(knife.position.x,.3,dt*9);
+    knife.position.y=lerp(knife.position.y,-.2,dt*9);
+    knife.position.z=lerp(knife.position.z,-.7,dt*9);
     if(!player.inspect){ player.spin=0; knifeSpin.rotation.set(0,0,0); }
   }else if(player.weapon===1){
     player.spinTip=lerp(player.spinTip,0,dt*14);
     knifeSpin.rotation.z=lerp(knifeSpin.rotation.z,0,dt*14);
-    knifeSpin.rotation.y=lerp(knifeSpin.rotation.y,0,dt*14);
     knifeArm.rotation.z=lerp(knifeArm.rotation.z,0,dt*12);
     knifeArm.rotation.y=lerp(knifeArm.rotation.y,0,dt*12);
     knifeArm.rotation.x=lerp(knifeArm.rotation.x,0,dt*12);
@@ -3721,6 +3885,7 @@ function update(dt){
   /* ---- the base: turrets, hired guns, and the two ways into the shop ---- */
   if(turrets.length) updateTurrets(dt);
   if(allies.length) updateAllies(dt);
+  if(dragon) updateDragon(dt);
   if(traps.length) updateTraps(dt);
   if(shells.length) updateShells(dt);
   updatePlacing(dt);
