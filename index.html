@@ -1231,6 +1231,9 @@ gun.add(flashLight);
 const knife=new THREE.Group();
 camera.add(knife);
 knife.position.set(.34,-.3,-.46);
+/* built at world scale, which up against the near plane filled a third of the screen -
+   a knife should sit in the corner of frame, not block the fight behind it */
+knife.scale.setScalar(.42);
 knife.visible=false;
 const knifeArm=new THREE.Group();          // swing pivot, keeps rest pose separate
 knife.add(knifeArm);
@@ -2943,7 +2946,11 @@ function update(dt){
     knifeSpin.rotation.z=player.spin;
     knifeSpin.rotation.y=-.42*player.spinTip;
     knifeArm.rotation.set(0,0,0);
-    knife.position.z=-.46-player.spinTip*.05;
+    /* held at rest the blade sweeps off the bottom of the frame, so bring the hand
+       up and back for the flourish - the whole circle has to be on screen to read */
+    knife.position.x=lerp(knife.position.x,.28,dt*9);
+    knife.position.y=lerp(knife.position.y,-.08,dt*9);
+    knife.position.z=lerp(knife.position.z,-.86,dt*9);
     if(!player.inspect){ player.spin=0; knifeSpin.rotation.set(0,0,0); }
   }else if(player.weapon===1){
     player.spinTip=lerp(player.spinTip,0,dt*14);
