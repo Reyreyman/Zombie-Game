@@ -351,13 +351,19 @@
 
   #buildtag{position:fixed;right:10px;top:8px;font-size:9px;letter-spacing:.22em;
     color:rgba(242,234,215,.5);z-index:30;pointer-events:none}
+  /* the build number, tucked into the very corner. it sits in the strip below the
+     vitals plate, so it is readable on the menu and out of the way in a fight, and
+     it outranks the full-screen panels so it stays visible on every screen */
+  #version{position:fixed;left:10px;bottom:6px;font-size:9px;letter-spacing:.18em;
+    color:rgba(242,234,215,.34);z-index:31;pointer-events:none;user-select:none}
   #loadmsg{font-size:12px;color:var(--dust);letter-spacing:.16em}
   @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important}}
 </style>
 </head>
 <body>
 
-<div id="buildtag">BUILD 13 &middot; BOSS ROTATION + FINGER SPIN + WHELP</div>
+<div id="buildtag">BUILD <span id="buildnum">14</span> &middot; BOSS ROTATION + FINGER SPIN + WHELP</div>
+<div id="version">v14</div>
 
 <div id="floaters"></div>
 
@@ -539,6 +545,22 @@
 <script>
 (function(){
 "use strict";
+
+/* =====================================================================
+   THE BUILD NUMBER
+   Bump this by one for every merged build. It is the only place the number
+   is written down: the corner readout and the build tag both read it here,
+   so the two can never disagree. Stamped before the THREE guard below, so a
+   run that fails to load the library still tells you which build failed.
+   ===================================================================== */
+const GAME_VERSION=14;
+(function stampVersion(){
+  const v=document.getElementById("version");
+  if(v) v.textContent="v"+GAME_VERSION;
+  const b=document.getElementById("buildnum");
+  if(b) b.textContent=GAME_VERSION;
+})();
+
 if(typeof THREE==="undefined"){
   document.getElementById("loadmsg").textContent="Could not load the 3D library. Check your connection and reload.";
   return;
